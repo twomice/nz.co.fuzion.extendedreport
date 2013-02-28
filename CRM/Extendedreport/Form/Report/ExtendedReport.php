@@ -2852,6 +2852,9 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
          'rightTable' => 'civicrm_tag',
          'callback' => 'joinEntityTagFromContact',
        ),
+      'timebased_contribution_from_contact' => array(
+        'callback' => 'joinContributionMulitplePeriods',
+        ),
     );
   }
 
