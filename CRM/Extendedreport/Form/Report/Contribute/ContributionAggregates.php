@@ -41,7 +41,12 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     $config = CRM_Core_Config::Singleton();
     $graphRows['xname'] = '6 months';
     $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
-    CRM_Utils_OpenFlashChart::chart($rows, 'barChartStack', $this->_interval);
+    dpm($rows);
+    foreach ($rows as $row){
+      $graphRows['receive_date'][] = $row['to_date'];
+      $graphRows['values'][] = array((integer) $row['lapsed'], (integer) $row['renewals']);
+    }
+    CRM_Utils_OpenFlashChart::buildChart($graphRows, 'barChartStack');
     $this->assign('chartType', $this->_params['charts']);
   }
 
