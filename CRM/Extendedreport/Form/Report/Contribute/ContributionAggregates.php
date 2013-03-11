@@ -34,7 +34,7 @@
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
   CONST OP_SINGLEDATE = 3;
-
+  protected $_add2groupSupported = FALSE;
   /**
    * Build chart for display
    * @param array $rows
@@ -43,8 +43,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     $graphData = array();
     // build the chart.
     $config = CRM_Core_Config::Singleton();
-    $graphData['xname'] = 'Base contribution period';
-    $graphData['yname'] = "Number of Contributions";
+    $graphData['xname'] = ts('Base contribution period');
+    $graphData['yname'] = ts("Number of Donors");
     foreach ($rows as $row){
       $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
       $graphData['end_date'][] = $row['to_date'];
