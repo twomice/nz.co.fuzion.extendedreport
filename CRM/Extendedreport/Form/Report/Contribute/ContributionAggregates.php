@@ -176,7 +176,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   )
                   COLLATE='utf8_unicode_ci'
                   ENGINE=HEAP;";
-
+    if(!empty($this->whereClauses['civicrm_contribution'])){
+      $contributionClause = " AND " . implode(' AND ', $this->whereClauses['civicrm_contribution']);
+    }
     $insertContributionRecordsSql = "
                   INSERT INTO $tempTable (cid, first_receive_date, total_amount)
                   SELECT {$this->_aliases[$this->_baseTable]}.id ,
@@ -185,9 +187,10 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
                   ON {$this->_aliases[$this->_baseTable]}.id =  {$this->_aliases['civicrm_contribution']}.contact_id
                   WHERE  {$this->_aliases['civicrm_contribution']}.contribution_status_id = 1
+                  $contributionClause
                   GROUP BY {$this->_aliases[$this->_baseTable]}.id
                   ";
-    /*
+                  /*
                   * Note we are stashing total amount & count since it seems like it opens up other options. However, it's not strictly in the requirement
                   * so if we have performance issues with the subquery using IS NOT NULL may be quicker
                   * UPDATE civicrm_temp_conts7221 t,
