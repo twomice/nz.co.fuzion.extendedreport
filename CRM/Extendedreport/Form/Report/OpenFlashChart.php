@@ -52,130 +52,13 @@ class CRM_Extendedreport_Form_Report_OpenFlashChart {
      * @static
      */
 
-
-  /**
-     * Build The Pie Gharph.
-     *
-     * @param  array  $params  assoc array of name/value pairs
-     *
-     * @return object $chart   object of open flash chart.
-     * @static
-     */
-  static function chart($rows, $chart, $interval) {
-    $chartData = array();
-
-    switch ($interval) {
-      case 'Month':
-        foreach ($rows['receive_date'] as $key => $val) {
-          list ($year, $month) = explode('-', $val);
-          $graph[substr($rows['Month'][$key], 0, 3) . ' ' . $year] = $rows['value'][$key];
-        }
-
-        $chartData = array(
-          'values' => $graph,
-          'legend' => ts('Monthly Contribution Summary')
-        );
-        break;
-
-      case 'Quarter':
-        foreach ($rows['receive_date'] as $key => $val) {
-          list ($year, $month) = explode('-', $val);
-          $graph['Quarter ' . $rows['Quarter'][$key] . ' of ' . $year] = $rows['value'][$key];
-        }
-
-        $chartData = array(
-          'values' => $graph,
-          'legend' => ts('Quarterly Contribution Summary')
-        );
-        break;
-
-      case 'Week':
-        foreach ($rows['receive_date'] as $key => $val) {
-          list ($year, $month) = explode('-', $val);
-          $graph['Week ' . $rows['Week'][$key] . ' of ' . $year] = $rows['value'][$key];
-        }
-
-        $chartData = array(
-          'values' => $graph,
-          'legend' => ts('Weekly Contribution Summary')
-        );
-        break;
-
-      case 'Year':
-        foreach ($rows['receive_date'] as $key => $val) {
-          list ($year, $month) = explode('-', $val);
-          $graph[$year] = $rows['value'][$key];
-        }
-        $chartData = array(
-          'values' => $graph,
-          'legend' => ts('Yearly Contribution Summary')
-        );
-        break;
-    }
-
-    // rotate the x labels.
-    $chartData['xLabelAngle'] = CRM_Utils_Array::value('xLabelAngle', $rows, 20);
-    if (CRM_Utils_Array::value('tip', $rows)) {
-      $chartData['tip'] = $rows['tip'];
-    }
-
-    //legend
-    $chartData['xname'] = CRM_Utils_Array::value('xname', $rows);
-    $chartData['yname'] = CRM_Utils_Array::value('yname', $rows);
-
-    // carry some chart params if pass.
-    foreach (array(
-      'xSize',
-      'ySize',
-      'divName'
-    ) as $f) {
-      if (CRM_Utils_Array::value($f, $rows)) {
-        $chartData[$f] = $rows[$f];
-      }
-    }
-
-    return self::buildChart($chartData, $chart);
-  }
-  static function reportChart($rows, $chart, $interval, &$chartInfo) {
-    foreach ($interval as $key => $val) {
-      $graph[$val] = $rows['value'][$key];
-    }
-
-    $chartData = array(
-      'values' => $graph,
-      'legend' => $chartInfo['legend'],
-      'xname' => $chartInfo['xname'],
-      'yname' => $chartInfo['yname']
-    );
-
-    // rotate the x labels.
-    $chartData['xLabelAngle'] = CRM_Utils_Array::value('xLabelAngle', $chartInfo, 20);
-    if (CRM_Utils_Array::value('tip', $chartInfo)) {
-      $chartData['tip'] = $chartInfo['tip'];
-    }
-
-    // carry some chart params if pass.
-    foreach (array(
-      'xSize',
-      'ySize',
-      'divName'
-    ) as $f) {
-      if (CRM_Utils_Array::value($f, $rows)) {
-        $chartData[$f] = $rows[$f];
-      }
-    }
-
-    return self::buildChart($chartData, $chart);
-  }
   function buildChart(&$params, $chart) {
     $openFlashChart = array();
     if ($chart && is_array($params) && ! empty($params)) {
       $chartInstance = new $chart($params);
       $chartInstance->buildChart();
       $chartObj = $chartInstance->getChart();
-      dpm($chartObj);
       $openFlashChart = array();
-      dpm($chartObj);
       if ($chartObj) {
         // calculate chart size.
         $xSize = CRM_Utils_Array::value('xSize', $params, 400);
@@ -204,12 +87,9 @@ class CRM_Extendedreport_Form_Report_OpenFlashChart {
         // assign chart data to template
         $template = CRM_Core_Smarty::singleton();
         $template->assign('uniqueId', $uniqueId);
-        //          $openFlashChart = '{ "elements": [ { "type": "bar_stack", "colours": [ "#C4D318", "#50284A", "#7D7B6A" ], "values": [ [ 2.5, 5, 2.5 ], [ 2.5, 5, 1.25, 1.25 ], [ 5, { "val": 5, "colour": "#ff0000" } ], [ 2, 2, 2, 2, { "val": 2, "colour": "#ff00ff" } ] ], "keys": [ { "colour": "#C4D318", "text": "Kiting", "font-size": 13 }, { "colour": "#50284A", "text": "Work", "font-size": 13 }, { "colour": "#7D7B6A", "text": "Drinking", "font-size": 13 }, { "colour": "#ff0000", "text": "XXX", "font-size": 13 }, { "colour": "#ff00ff", "text": "What rhymes with purple? Nurple?", "font-size": 13 } ], "tip": "X label [#x_label#], Value [#val#]
-        //Total [#total#]" } ], "title": { "text": "Stuff I\'m thinking about, Mon Mar 11 2013", "style": "{font-size: 20px; color: #F24062; text-align: center;}" }, "x_axis": { "labels": { "labels": [ "Winter", "Spring", "Summer", "Autmn" ] } }, "y_axis": { "min": 0, "max": 14, "steps": 2 }, "tooltip": { "mouse": 2 } }';
         $template->assign("openFlashChartData", json_encode($openFlashChart));
       }
     }
-    dpm($openFlashChart);
     return $openFlashChart;
   }
 }
@@ -239,6 +119,8 @@ class chart {
   protected $tooltip = array();
   protected $chart = null;
   protected $chartElement = null;
+  protected $onClickFunName = null;
+
   function __construct($params) {
     $chart = NULL;
     if (empty($params)) {
@@ -248,14 +130,28 @@ class chart {
     if (! is_array($this->values) || empty($this->values)) {
       return $chart;
     }
+    $this->chartTitle = CRM_Utils_Array::value('title', $params);
     $this->createChartElement();
-    $this->chartElement->set_colour($this->_colours);
-    // get the currency.
-    $config = CRM_Core_Config::singleton();
-    $symbol = $config->defaultCurrencySymbol;
+    $this->chartElement->set_colours($this->_colours);
+    $this->setToolTip(CRM_Utils_Array::value('tip', $params));
+    $this->onClickFunName = CRM_Utils_Array::value('on_click_fun_name', $params);
+  }
 
-    // set the tooltip.
-    $this->tooltip = CRM_Utils_Array::value('tip', $params, "$symbol #val#");
+  /**
+   *
+   * Set the tool tip
+   * @param string $tip
+   */
+  function setToolTip($tip){
+    if($tip){
+      $this->chartElement->set_tooltip($tip);
+      return;
+    }
+    else{
+      $config = CRM_Core_Config::singleton();
+      $symbol = $config->defaultCurrencySymbol;
+      $this->chartElement->set_tooltip("$symbol #val#");
+    }
   }
 
   /**
@@ -300,6 +196,7 @@ class barchart extends chart {
   protected $xAxisName = null;
   protected $yAxisName = null;
   protected $ylabelAngle = null;
+  protected $xlabels = null;
   /**
  *
  * @param array $params
@@ -312,16 +209,11 @@ class barchart extends chart {
     }
     $this->xAxisName = CRM_Utils_Array::value('xname', $params);
     $this->yAxisName = CRM_Utils_Array::value('yname', $params);
-    $this->xlabelAngle = CRM_Utils_Array::value('xlabelAngle', $params);
-    $this->chartTitle = CRM_Utils_Array::value('legend', $params) ? $params['legend'] : ts('Bar Chart');
-
-    //set values.
-    $this->chartElement->set_values($this->yValues);
-    $this->setYMaxYSteps($this->yValues);
-
+    $this->xlabelAngle = CRM_Utils_Array::value('xlabelAngle', $params, 30);
+    $this->chartTitle = CRM_Utils_Array::value('legend', $params, ts('Bar Chart'));
     // call user define function to handle on click event.
-    if ($onClickFunName = CRM_Utils_Array::value('on_click_fun_name', $params)) {
-      $this->chartElement->set_on_click($onClickFunName);
+    if ($this->onClickFunName) {
+      $this->chartElement->set_on_click($this->onClickFunName);
     }
   }
 
@@ -346,6 +238,8 @@ class barchart extends chart {
      */
   function createChartElement() {
     $this->chartElement = new bar_glass();
+    $this->chartElement->set_values($this->yValues);
+    $this->setYMaxYSteps($this->yValues);
   }
   /**
  * (non-PHPdoc)
@@ -356,6 +250,9 @@ class barchart extends chart {
     $this->buildxyAxis();
     $this->chart->set_x_axis($this->xAxis);
     $this->chart->add_y_axis($this->yAxis);
+    if($this->tagPercent && !empty($this->tags)){
+      $this->chart->add_element( $this->tags );
+    }
   }
 
   /**
@@ -375,9 +272,8 @@ class barchart extends chart {
       $yLegend->set_style("{font-size: 13px; color:#000000; font-family: Verdana; text-align: center;}");
       $this->chart->set_y_legend($yLegend);
     }
-    // create x axis label obj.
-    $xLabels = new x_axis_labels();
-    $xLabels->set_labels($this->xValues);
+    // create x axis label obj. @todo - this the setting of labels to xlabels ma
+    $xLabels = $this->setXLabels();
 
     // set angle for labels.
     if ($this->xlabelAngle) {
@@ -392,6 +288,17 @@ class barchart extends chart {
     $this->yAxis = new y_axis();
     $this->yAxis->set_range($this->yMin, $this->yMax, $this->ySteps);
   }
+
+  /**
+   *
+   * Set the xLabels
+   * @return object x_axis_labels
+   */
+  function setXLabels(){
+    $xLabels = new x_axis_labels();
+    $xLabels->set_labels($this->xValues);
+    return $xLabels;
+  }
 }
 
 /**
@@ -401,23 +308,75 @@ class barchart extends chart {
    *
    */
 class barChartStack extends barchart {
+  protected $keyLabels = array();
+  protected $_colours = array(
+    "#C3CC38",
+    "#CEA632",);
+  protected $tagPercent = TRUE;
+  protected $tags = array();
   function __construct($params) {
+    $this->keyLabels =  $this->createKeyLabels($params['labels']);
+    $this->xlabels = CRM_Utils_Array::value('xlabels', $params);
     parent::__construct($params);
+    $x = 0;
+    $this->tags = new ofc_tags();
     foreach ($this->values as $valueArray) {
       $this->chartElement->append_stack($valueArray);
-        $totals[] = array_sum($valueArray);
-      }
-    $this->setYMaxYSteps($totals);
-    // call user define function to handle on click event.
-    if ($onClickFunName = CRM_Utils_Array::value('on_click_fun_name', $params)) {
-      $bar_stack->set_on_click($onClickFunName);
+      $totals[] = array_sum($valueArray);
+      $tag = new ofc_tag($x, $valueArray[0]);
+      $tag->text(round($valueArray[0]/ array_sum($valueArray),2) . '%');
+      $this->tags->append_tag($tag);
+      $x++;
     }
+
+    $this->setYMaxYSteps($totals);
+
+
+  }
+  /**
+   *
+   * Set the tool tip
+   * @param string $tip
+   */
+  function setToolTip($tip){
+    if($tip){
+      $this->chartElement->set_tooltip($tip);
+      return;
+    }
+    else{
+      $this->chartElement->set_tooltip("Of those who gave during <br>#x_label#<br> #val# out of #total#");
+    }
+  }
+
+  /**
+   *
+   * Set the tool tip
+   * @param string $tip
+   */
+  function setXLabels(){
+    $xLabels = new x_axis_labels();
+    $xLabels->set_labels($this->xlabels);
+    return $xLabels;
+  }
+
+/**
+ *
+ * @param unknown_type $labels
+ * @return multitype:bar_stack_key
+ */
+  function createKeyLabels($labels){
+    $keyLabels = array();
+    foreach ($labels as $index => $label){
+      $keyLabels[] = new bar_stack_key($this->_colours[$index], $label, 13);
+    }
+    return $keyLabels;
   }
   /**
      * Add main element
      */
   function createChartElement() {
     $this->chartElement = new bar_stack();
+    $this->chartElement->set_keys($this->keyLabels);
   }
 }
 

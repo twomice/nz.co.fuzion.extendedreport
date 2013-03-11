@@ -34,19 +34,25 @@
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
   CONST OP_SINGLEDATE = 3;
+
+  /**
+   * Build chart for display
+   * @param array $rows
+   */
   function buildChart(&$rows) {
-    $graphRows = array();
-    $count = 0;
+    $graphData = array();
     // build the chart.
     $config = CRM_Core_Config::Singleton();
-    $graphRows['xname'] = '6 months';
-    $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
-    dpm($rows);
+    $graphData['xname'] = 'Base contribution period';
+    $graphData['yname'] = "Number of Contributions";
     foreach ($rows as $row){
-      $graphRows['receive_date'][] = $row['to_date'];
-      $graphRows['values'][] = array((integer) $row['lapsed'], (integer) $row['renewals']);
+      $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
+      $graphData['end_date'][] = $row['to_date'];
+      $graphData['values'][] = array( (integer) $row['renewals'], (integer) $row['lapsed']);
     }
-    CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphRows, 'barChartStack');
+    $graphData['labels'] = array('Renewed', 'Lapsed');
+    $graphData['legend'] = ts('Subsequent contributions for Contributors in Base Period');
+    CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, 'barChartStack');
     $this->assign('chartType', $this->_params['charts']);
   }
 
