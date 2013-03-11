@@ -46,7 +46,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       $graphRows['receive_date'][] = $row['to_date'];
       $graphRows['values'][] = array((integer) $row['lapsed'], (integer) $row['renewals']);
     }
-    CRM_Utils_OpenFlashChart::buildChart($graphRows, 'barChartStack');
+    CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphRows, 'barChartStack');
     $this->assign('chartType', $this->_params['charts']);
   }
 
