@@ -324,7 +324,7 @@ class barChartStack extends barchart {
       $this->chartElement->append_stack($valueArray);
       $totals[] = array_sum($valueArray);
       $tag = new ofc_tag($x, $valueArray[0]);
-      $tag->text(round($valueArray[0]/ array_sum($valueArray),2) . '%');
+      $tag->text(round($valueArray[0]/ array_sum($valueArray) * 100) . '%');
       $this->tags->append_tag($tag);
       $x++;
     }
@@ -344,7 +344,7 @@ class barChartStack extends barchart {
       return;
     }
     else{
-      $this->chartElement->set_tooltip("Of those who gave during <br>#x_label#<br> #val# out of #total#");
+      $this->chartElement->set_tooltip(" #val# out of #total#<br>Of those who gave during <br>#x_label#");
     }
   }
 
