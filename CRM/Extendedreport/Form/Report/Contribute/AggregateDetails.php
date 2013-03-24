@@ -32,11 +32,13 @@
  * $Id$
  *
  */
-class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates {
+class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates {
   protected $_temporary = '  ';
   protected $_baseTable = 'civicrm_contact';
+  protected $_baseEntity = 'contribution';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
+
 
   protected $_charts = array(
     '' => 'Tabular',
@@ -46,48 +48,39 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
-    $this->barChartLegend = ts('Subsequent contributions for Contributors in Base Period');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
         'filters' => array(
-          'receive_date' => array(),
-          'contribution_baseline_interval' => array(
-            'title' => ts('Contribution Time Interval'),
+          'receive_date' => array(),// just to make it first
+          'catchment_date' => array(
+            'title' => ts('Catchment Date Range'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
-            'type' => CRM_Report_Form::OP_INT,
+            'type' => CRM_Report_Form::OP_DATE,
+            'operatorType' => CRM_Report_Form::OP_DATE,
             'required' => TRUE,
-            'options' => array('6' => '6 months', '12' => '12 months'),
           ),
-          'contribution_renewal_catchment' => array(
-            'title' => ts('Renewal timeframe'),
+          'behaviour_type' => array(
+            'title' => ts('Donor Behavior'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
-            'type' => CRM_Report_Form::OP_INT,
-            'options' => array('12' => '12 months', '18' => '18 months'),
-          ),
-          'contribution_no_periods' => array(
-            'title' => ts('Number of periods to show'),
-            'pseudofield' => TRUE,
+            'type' => CRM_Report_Form::OP_STRING,
             'operatorType' => CRM_Report_Form::OP_SELECT,
-            'default' => 4,
-            'type' => CRM_Report_Form::OP_INT,
-            'options' => array(1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6 ),
+            'required' => TRUE,
+            'options' => array(
+              'renewed' => 'Renewed Donors',
+              'new' => 'New Donor',
+              'lapsed' => 'Lapsed Donors')
           ),
+
         )
       ),
     );
     $this->_columns =  array_merge_recursive($this->reportFilters, $this->getContributionColumns(array(
-        'fields' => FALSE,
+        'fields' => TRUE,
         'order_by' => FALSE,
-      )))  ;
-
-    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['operatorType'] = parent::OP_SINGLEDATE;
-    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['title'] = 'Cut-off date';
-    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['operations'] = array('to' =>  'Is equal to');
-    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['default'] = date('m/d/Y',strtotime('31 Dec last year'));
+      )))
+    + $this->getContactColumns();
    // $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
@@ -116,38 +109,28 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   }
 
   function constrainedFromClause(){
-    $this->constructRanges(array(
-      'cutoff_date' => 'receive_date_value',
-      'offset_unit' => 'month',
-      'offset' => 'contribution_baseline_interval_value',
-      'catchment_offset' => 'contribution_renewal_catchment_value',
-      'catchment_offset_unit' => 'month',
-      'no_periods' => 'contribution_no_periods_value',
-      'statuses' => array('renewals, lapsed')
-      )
+    $this->_ranges = array(
+      'interval_0' => array()
     );
+    $dateFields = array('receive_date' => '', 'catchment_date' => 'catchment_');
+    foreach ($dateFields as $fieldName => $prefix){
+      $relative = CRM_Utils_Array::value("{$fieldName}_relative", $this->_params);
+      $from     = CRM_Utils_Array::value("{$fieldName}_from", $this->_params);
+      $to       = CRM_Utils_Array::value("{$fieldName}_to", $this->_params);
+      $fromTime = CRM_Utils_Array::value("{$fieldName}_from_time", $this->_params);
+      $toTime   = CRM_Utils_Array::value("{$fieldName}_to_time", $this->_params);
+      list($from, $to) = CRM_Report_Form::getFromTo($relative, $from, $to,  $fromTime, $toTime);
+      $this->_ranges['interval_0'][$prefix . 'from_date'] = DATE('Y-m-d', strtotime($from));
+      $this->_ranges['interval_0'][$prefix . 'to_date'] = DATE('Y-m-d', strtotime($to));
+    }
+    $this->_statuses = array($this->_params['behaviour_type_value']);
     return array(
-      'timebased_contribution_from_contact'
+      'single_contribution_comparison_from_contact'
     );
   }
 
   function select(){
-    if(!$this->_preConstrained){
-      parent::select();
-    }
-    else{
-      $columns = array(
-        'from_date' => ts('From date'),
-        'to_date' => ts('To Date'),
-        'renewals' => ts('Renewals'),
-        'lapsed' => ts('Lapsed')
-      );
-      foreach ($columns as $column => $title){
-        $select[]= " $column ";
-        $this->_columnHeaders[$column] = array('title' => $title);
-      }
-      $this->_select = " SELECT " . implode(', ', $select);
-    }
+    parent::select();
   }
 
   function where() {
@@ -168,5 +151,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   function postProcess() {
     parent::postProcess();
   }
+
+
 }
 

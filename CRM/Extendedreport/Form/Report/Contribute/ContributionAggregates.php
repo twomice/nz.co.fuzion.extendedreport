@@ -31,10 +31,47 @@
  * @copyright CiviCRM LLC (c) 2004-2013
  * $Id$
  *
+ *
+ * This is the base class for contribution aggregate reports. The report constructs a table
+ * for a series of one or more data ranges and catchment ranges
+ * The catchment range is the range to be compared against the main date range
+ *
+ * 4 types of comparitive data can be derived
+ *  1) renewals - people who gave in both the base & the catchment period
+ *  2) lapsed - people who gave in the catchment period only
+ *  3) new - people who gave in the base period but not the catchment period
+ *  4) reactivations - people who gave in the new period but not the catchment period
+ *    but also gave on an earlier occasion during the report universe
+ *
+ *  Where are reportingStartDate is set the report 'universe' is only  those contributions after that date
+ *
+ *  The report builds up the pairs of ranges (base & catchment) for 3 main scenarios
+ *    1) catchment is a future range, in this case the catchment period generally starts the day after the
+ *    main period. This is used for the renewals where we want to look at one period & see what happened to the
+ *    donors from that period in the next period - did they lapse or renew
+ *
+ *    2) catchment is 'allprior' - ie. any contributions in the report universe prior to the base date
+ *    are treated as catchment. This used for the Recovery report where we see if people who gave
+ *    prior to the base period gave (reactivated) or didn't give (lapsed) in the base period
+ *
+ *    3) catchment is prior - in this case the catchment is a prior range but does not go back as far as
+ *    the report universe unless it co-incides with it. This is not a required report & no work has been done
+ *    (although it has been created in the hope it 'just works' & shows which base period
+ *    contributions are renewals, reactivations & new )
+ *
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
   CONST OP_SINGLEDATE = 3;
   protected $_add2groupSupported = FALSE;
+  protected $_ranges = array();
+  protected $_reportingStartDate = NULL;
+  protected $_catchmentType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
+  protected $_barChartLegend = NULL;
+  /**
+   *
+   * @var array statuses to include in report
+   */
+  protected $_statuses = array();
   /**
    * Build chart for display
    * @param array $rows
@@ -45,15 +82,44 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     $config = CRM_Core_Config::Singleton();
     $graphData['xname'] = ts('Base contribution period');
     $graphData['yname'] = ts("Number of Donors");
-    foreach ($rows as $row){
+    foreach ($rows as $row) {
       $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
       $graphData['end_date'][] = $row['to_date'];
-      $graphData['values'][] = array( (integer) $row['renewals'], (integer) $row['lapsed']);
+      $graphData['values'][] = array(
+        (integer) $row['renewed'],
+        (integer) $row['lapsed']
+      );
     }
-    $graphData['labels'] = array('Renewed', 'Lapsed');
-    $graphData['legend'] = ts('Subsequent contributions for Contributors in Base Period');
+    $graphData['labels'] = array(
+      'Renewed',
+      'Lapsed'
+    );
+    $graphData['legend'] = ts($this->_barChartLegend);
     CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, 'barChartStack');
     $this->assign('chartType', $this->_params['charts']);
+  }
+
+  function alterDisplay(&$rows){
+    foreach ($rows as $index => &$row){
+      foreach ($this->_statuses as $status){
+        if(array_key_exists($status, $row)){
+          $statusUrl = CRM_Report_Utils_Report::getNextUrl('contribute/aggregatedetails',
+          "reset=1&force=1&receive_date_from={$row['from_date']}&receive_date_to={$row['to_date']}
+          &catchment_date_from=". $this->_ranges['interval_' . $index]['catchment_from_date'] .
+          "&catchment_date_to=". $this->_ranges['interval_' . $index]['catchment_to_date'] .
+          "&type={$status}",
+          $this->_absoluteUrl,
+          $this->_id,
+          $this->_drilldownReport
+          );
+          $row[$status . '_link'] = $statusUrl;
+        }
+      }
+      if(!empty($row['recovered_link'])){
+        $row['recovered_link'] = $url;
+      }
+    }
+    parent::alterDisplay($rows);
   }
 
   /**
@@ -64,14 +130,16 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    *
    * @param array $extra
    */
-  function multiplePeriodsConstructRanges($extra) {
+  function constructRanges($extra) {
     $vars = array(
       'cutoff_date',
       'no_periods',
       'offset_unit',
       'offset',
       'catchment_offset',
-      'catchment_offset_unit'
+      'catchment_offset_unit',
+      'start_offset',
+      'start_offset_unit',
     );
     foreach ($vars as $var) {
       if (! empty($this->_params[$extra[$var]])) {
@@ -83,20 +151,68 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
     // start of our period is the cutoff date - the sum of all our periods + one day (as ranges expected to run 01 Jan to 31 Dec etc)
     $startDate = date('Y-m-d', strtotime("- " . ($no_periods * $offset) . " $offset_unit ", strtotime('+ 1 day', strtotime($cutoff_date))));
-    $ranges = array();
+    $this->_ranges = array();
     for($i = 0; $i < $no_periods; $i ++) {
-      $rangeStart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
-      $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangeStart))));
-      $rangeCatchmentStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
-      $rangeCatchmentEnd = date('Y-m-d', strtotime(" + $catchment_offset $catchment_offset_unit", strtotime('- 1 day', strtotime($rangeCatchmentStart))));
-      $ranges['interval_' . $i] = array(
-        'from_date' => $rangeStart,
-        'to_date' => $rangeEnd,
-        'catchment_from_date' => $rangeCatchmentStart,
-        'catchment_to_date' => $rangeCatchmentEnd
-      );
+      if($this->_catchmentType  == 'future'){
+        $this->constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit);
+      }
+      if($this->_catchmentType == 'allprior' || $this->_catchmentType == 'prior'){
+        $this->constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit);
+      }
     }
-    return $ranges;
+    return $this->_ranges;
+  }
+/**
+ *
+ * @param integer $i
+ * @param string $startDate
+ * @param integer $no_periods
+ * @param string $offset_unit
+ * @param integer $offset
+ * @param string $catchment_offset
+ * @param integer $catchment_offset_unit
+ * @param string $start_offset
+ * @param integer $start_offset_unit
+ */
+  function constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit){
+    $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
+    $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
+    $rangeCatchmentStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
+    $rangeCatchmentEnd = date('Y-m-d', strtotime(" + $catchment_offset $catchment_offset_unit", strtotime('- 1 day', strtotime($rangeCatchmentStart))));
+    $this->_ranges['interval_' . $i] = array(
+      'from_date' => $rangestart,
+      'to_date' => $rangeEnd,
+      'catchment_from_date' => $rangeCatchmentStart,
+      'catchment_to_date' => $rangeCatchmentEnd
+    );
+  }
+
+  /**
+   *
+   * @param integer $i
+   * @param string $startDate
+   * @param integer $no_periods
+   * @param string $offset_unit
+   * @param integer $offset
+   * @param string $catchment_offset
+   * @param integer $catchment_offset_unit
+   */
+  function constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit){
+    $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
+    $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
+    if($this->_reportingStartDate && $this->_catchmentType == 'allprior'){
+      $rangeCatchmentStart = $this->_reportingStartDate;
+    }
+    else{
+      $rangeCatchmentStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
+    }
+    $rangeCatchmentEnd = date('Y-m-d',  strtotime('- 1 day', strtotime($rangestart)));
+    $this->_ranges['interval_' . $i] = array(
+      'from_date' => $rangestart,
+      'to_date' => $rangeEnd,
+      'catchment_from_date' => $rangeCatchmentStart,
+      'catchment_to_date' => $rangeCatchmentEnd
+    );
   }
   /*
     *      )
@@ -113,25 +229,101 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     *    'catchment_offset' => 18,
     *    'catchment_offset_unit' => 'month',
     *    'no_periods' => 4,
+    *    'start_offset' = > 60
+    *    'start_offset_unit' => 'month'
     *
     *
     */
   function joinContributionMulitplePeriods($prefix, $extra) {
-    $ranges = $this->multiplePeriodsConstructRanges($extra);
     if (! $this->_preConstrained) {
       if (empty($this->_aliases['civicrm_contact'])) {
         $this->_aliases['civicrm_contact'] = 'civicontact';
       }
+
       //we are just going to add our where clause here
-      $this->_params['receive_date_from'] = $ranges['interval_0']['from_date'];
       $this->_params['receive_date_to'] = $this->_params['receive_date_value'];
+      if (! empty($extra['start_offset'])) {
+        $this->_params['receive_date_from'] = $this->_reportingStartDate;
+      }
+      else {
+        $this->_params['receive_date_from'] = $this->_ranges['interval_0']['from_date'];
+      }
       return;
     }
-    unset ($this->_params['receive_date_from']);
-    unset ($this->_params['receive_date_to']);
+    unset($this->_params['receive_date_from']);
+    unset($this->_params['receive_date_to']);
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
-    $tempTable = $this->constructComparisonTable($ranges);
-    $this->_from = " FROM {$tempTable}_summary";
+    $tempTable = $this->constructComparisonTable();
+
+    //@todo hack differentiating summary based on contact & contribution report
+    // do something better
+    if($this->_baseEntity == 'contribution'){
+      if(empty($this->aliases['civicrm_contribution'])){
+        $this->aliases['civicrm_contribution'] = 'contribution_civireport';
+      }
+      $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
+      $this->_from = str_replace('FROM' . $baseFrom , "FROM  $tempTable tmptable INNER JOIN civicrm_contribution
+       {$this->aliases['civicrm_contribution']} ON tmptable.cid = {$this->aliases['civicrm_contribution']}.contact_id
+       AND tmptable.interval_0_{$this->_params['behaviour_type_value']} = 1
+       INNER JOIN $baseFrom ON {$this->_aliases[$this->_baseTable]}.id = {$this->_aliases['civicrm_contribution']}.contact_id
+       ", $this->_from);
+    }
+    else{
+      $this->createSummaryTable($tempTable, $extra['statuses']);
+      $this->_from = " FROM {$tempTable}_summary";
+    }
+  }
+
+  function setReportingStartDate($startParams){
+    if (!empty($extra['start_offset']) && !$this->_reportingStartDate) {
+      $startOffset = CRM_Utils_Array::value($extra['start_offset'], $this->_params, $extra['start_offset']);
+      $startOffsetUnit = CRM_Utils_Array::value($extra['start_offset_unit'], $this->_params, $extra['start_offset_unit']);
+      $this->_reportingStartDate = date('Y-m-d', strtotime("-  $startOffset  $startOffsetUnit ", strtotime($this->_params['receive_date_value'])));
+    }
+  }
+
+  /*
+  * Here we have one period & a catchment
+  * Receive date from / to are compulsory for this
+  * as are catchment_dates & type
+  *
+  */
+  function joinContributionSinglePeriod($prefix, $extra) {
+    //@todo this setting of aliases is just a hack
+    if (empty($this->_aliases['civicrm_contact'])) {
+      $this->_aliases['civicrm_contact'] = 'civicontact';
+    }
+    if (empty($this->_aliases['civicrm_contribution'])) {
+      $this->aliases['civicrm_contribution'] = 'contribution_civireport';
+    }
+    if (! $this->_preConstrained) {
+      return;
+    }
+    //@todo - not sure if we need this separate from 'mulitple' - main difference is handling around 'receive_date
+    // because in single we are using the receive date
+
+    $tempTable = $this->constructComparisonTable();
+    //@todo hack differentiating summary based on contact & contribution report
+    // do something better
+    if($this->_baseEntity == 'contribution'){
+      $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
+      $this->_from = str_replace('FROM' . $baseFrom , "
+        FROM  $tempTable tmptable
+        INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
+          ON tmptable.cid = {$this->_aliases['civicrm_contribution']}.contact_id
+          AND tmptable.interval_0_{$this->_params['behaviour_type_value']} = 1
+          AND {$this->_aliases['civicrm_contribution']}.receive_date
+            BETWEEN '{$this->_ranges['interval_0']['from_date']}' AND
+            '{$this->_ranges['interval_0']['to_date']}'
+        INNER JOIN {$this->_baseTable} tmpcontacts ON tmpcontacts.id = {$this->_aliases['civicrm_contribution']}.contact_id
+        INNER JOIN civicrm_contact {$this->_aliases[$this->_baseTable]} ON {$this->_aliases[$this->_baseTable]}.id = tmpcontacts.id
+      ", $this->_from);
+
+    }
+    else{
+      $this->createSummaryTable($tempTable, $extra['statuses']);
+      $this->_from = " FROM {$tempTable}_summary";
+    }
   }
 
   /**
@@ -151,10 +343,10 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   *        'catchment_from_date' => '2010-01-01',
   *        'catchment_to_date' => '2010-06-01',),
   */
-  function constructComparisonTable($ranges) {
+  function constructComparisonTable() {
     $columnStr = '';
     $betweenClauses = array();
-    foreach ($ranges as $alias => &$specs) {
+    foreach ($this->_ranges as $alias => &$specs) {
 
       $specs['between'] = "
       BETWEEN '{$specs['from_date']}'
@@ -167,10 +359,13 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
       $columnStr .= "  {$alias}_amount FLOAT NOT NULL default 0, {$alias}_no FLOAT NOT NULL default 0, ";
       $columnStr .= "  {$alias}_catch_amount FLOAT NOT NULL default 0, {$alias}_catch_no FLOAT NOT NULL default 0, ";
+      foreach ($this->_statuses as $status){
+        $columnStr .= "  {$alias}_{$status} TINYINT NOT NULL default 0, ";
+      }
     }
 
     $temporary = $this->_temporary;
-    $tempTable = 'civicrm_temp_conts' . rand(1, 10000);
+    $tempTable = 'civicrm_temp_conts' . date('d_H_I') . rand(1, 10000);
     CRM_Core_DAO::executeQuery("DROP TABLE IF EXISTS $tempTable");
     $createTablesql = "
                   CREATE  $temporary TABLE $tempTable (
@@ -182,9 +377,10 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   )
                   COLLATE='utf8_unicode_ci'
                   ENGINE=HEAP;";
-    if(!empty($this->whereClauses['civicrm_contribution'])){
+    if (! empty($this->whereClauses['civicrm_contribution'])) {
       $contributionClause = " AND " . implode(' AND ', $this->whereClauses['civicrm_contribution']);
     }
+
     $insertContributionRecordsSql = "
                   INSERT INTO $tempTable (cid, first_receive_date, total_amount)
                   SELECT {$this->_aliases[$this->_baseTable]}.id ,
@@ -196,7 +392,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   $contributionClause
                   GROUP BY {$this->_aliases[$this->_baseTable]}.id
                   ";
-                  /*
+    /*
                   * Note we are stashing total amount & count since it seems like it opens up other options. However, it's not strictly in the requirement
                   * so if we have performance issues with the subquery using IS NOT NULL may be quicker
                   * UPDATE civicrm_temp_conts7221 t,
@@ -208,13 +404,13 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                     BETWEEN '2010-01-01' AND '2011-06-06 23:59:59'
                     GROUP BY contact_id) as conts
                     */
-    foreach ($ranges as $rangeName => &$rangespecs) {
+    foreach ($this->_ranges as $rangeName => &$rangeSpecs) {
       $inserts[] = " UPDATE $tempTable t,
                   (  SELECT contact_id, sum(cont.total_amount) as total_amount, count(cont.id) as no_cont
                   FROM $tempTable tmp
                   INNER JOIN civicrm_contribution cont ON tmp.cid = cont.contact_id
                   WHERE cont.receive_date
-                  BETWEEN '{$rangespecs['from_date']}' AND '{$rangespecs['to_date']} 23:59:59'
+                  BETWEEN '{$rangeSpecs['from_date']}' AND '{$rangeSpecs['to_date']} 23:59:59'
                   GROUP BY contact_id
                   ) as conts
                   SET {$rangeName}_amount = conts.total_amount,
@@ -227,36 +423,130 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   FROM $tempTable tmp
                   INNER JOIN civicrm_contribution cont ON tmp.cid = cont.contact_id
                   WHERE cont.receive_date
-                  BETWEEN '{$rangespecs['catchment_from_date']}' AND '{$rangespecs['catchment_to_date']} 23:59:59'
+                  BETWEEN '{$rangeSpecs['catchment_from_date']}' AND '{$rangeSpecs['catchment_to_date']} 23:59:59'
                   GROUP BY contact_id
                   ) as conts
                   SET {$rangeName}_catch_amount = conts.total_amount,
                   {$rangeName}_catch_no = no_cont
                   WHERE t.cid = contact_id
                   ";
+      foreach ($this->_statuses as $status){
+        $statusClauses[] = "
+           {$rangeName}_{$status} = " . $this->getStatusClause($status, $rangeName, $rangeSpecs);
+      }
     }
-
+    if(!empty($statusClauses)){
+      $inserts[] = " UPDATE $tempTable t SET " . implode(',', $statusClauses);
+    }
     CRM_Core_DAO::executeQuery($createTablesql);
     CRM_Core_DAO::executeQuery($insertContributionRecordsSql);
     foreach ($inserts as $sql) {
+      dpm($sql);
       CRM_Core_DAO::executeQuery($sql);
     }
-
-    foreach ($ranges as $rangeName => &$rangespecs) {
+    return $tempTable;
+  }
+  /**
+ *
+ * @param string $tempTable
+ * @param array $this->_ranges
+ * @return string
+ */
+  function createSummaryTable($tempTable) {
+    foreach ($this->_ranges as $rangeName => &$rangeSpecs) {
       // could do this above but will probably want this creation in a separate function
-      $summarySQL[] = "
-        SELECT '{$rangespecs['from_date']}' as from_date,
-        '{$rangespecs['to_date']}' as to_date,
-        SUM(IF
-        ({$rangeName}_amount > 0 AND {$rangeName}_catch_amount = 0 , 1,  0
-        )) AS lapsed,
-        SUM(IF
-        ({$rangeName}_amount > 0 AND {$rangeName}_catch_amount > 0, 1,  0  )) AS renewals
-        FROM {$tempTable}";
+      $sql = "
+      SELECT
+      '$rangeName' as range_name,
+      '{$rangeSpecs['from_date']}' as from_date,
+      '{$rangeSpecs['to_date']}' as to_date ";
+      foreach ($this->_statuses as $status){
+        $sql .= " , SUM(
+          {$rangeName}_{$status}
+        ) AS {$status} ";
+      }
+
+      $summarySQL[] = $sql . " FROM {$tempTable}";
     }
+
     $newTableSQL = " CREATE table {$tempTable}_summary" . implode(' UNION ', $summarySQL);
     CRM_Core_DAO::executeQuery($newTableSQL);
-    return $tempTable;
+  }
+/**
+ * Wrapper for status clauses
+ * @param string $status
+ * @param string $rangeName
+ */
+ function getStatusClause($status, $rangeName, $rangeSpecs){
+   $fn = 'get' . ucfirst($status) . 'clause';
+   return $this->$fn($rangeName, $rangeSpecs);
+ }
+
+ /**
+ * Get Clause for lapsed
+ */
+  function getLapsedClause($rangeName, $rangeSpecs) {
+    return "
+        IF (
+          {$rangeName}_amount = 0 AND {$rangeName}_catch_amount > 0, 1,  0
+         )
+    ";
+  }
+  /**
+   * Get Clause for Recovered
+   */
+  function getRecoveredClause($rangeName, $rangeSpecs) {
+    return "
+        IF (
+         {$rangeName}_amount > 0 AND (
+           {$rangeName}_catch_amount = 0 AND first_receive_date < '{$rangeSpecs['from_date']}'
+         ) , 1,  0
+        )
+     ";
+  }
+
+  /**
+   * Get Clause for Renewed
+   * These are where the contribution happened in both periods
+   * - note that the term 'renewal' & the term Recovered are easily confused
+   * but recovered is used where the catchment period is 'prior' but not 'priorall'
+   * so there is a period not covered in the catchment period but covered in the
+   * report 'universe'
+   */
+  function getRenewedClause($rangeName, $rangeFromDate) {
+    return "
+      IF (
+        {$rangeName}_amount > 0 AND {$rangeName}_catch_amount > 0, 1,  0
+      )
+    ";
+  }
+
+  function getNewClause($rangeName, $rangeFromDate){
+    return "
+    IF (
+    {$rangeName}_amount > 0 AND {$rangeName}_catch_amount = 0, 1,  0
+    )
+    ";
+  }
+  /**
+   * (non-PHPdoc)
+   * @see CRM_Extendedreport_Form_Report_ExtendedReport::getAvailableJoins()
+   */
+  function getAvailableJoins() {
+    return parent::getAvailableJoins() + array(
+      'timebased_contribution_from_contact' => array(
+        'callback' => 'joinContributionMulitplePeriods'
+      ),
+      'single_contribution_comparison_from_contact' => array(
+        'callback' => 'joinContributionSinglePeriod'
+      ),
+    );
+  }
+  /**
+   * We have some overloaded vars which could either be a constant of a param - convert
+   * @param unknown_type $vars
+   */
+  function getVarsFromParams(&$vars) {
   }
 }
 

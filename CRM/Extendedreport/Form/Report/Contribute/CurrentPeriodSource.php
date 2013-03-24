@@ -32,11 +32,12 @@
  * $Id$
  *
  */
-class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates {
+class CRM_Extendedreport_Form_Report_Contribute_CurrentPeriodSource extends CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates {
   protected $_temporary = '  ';
   protected $_baseTable = 'civicrm_contact';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
+  protected $_catchmentType = 'prior';
 
   protected $_charts = array(
     '' => 'Tabular',
@@ -46,7 +47,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
-    $this->barChartLegend = ts('Subsequent contributions for Contributors in Base Period');
+    $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
         'filters' => array(
@@ -68,13 +69,11 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
             'type' => CRM_Report_Form::OP_INT,
             'options' => array('12' => '12 months', '18' => '18 months'),
           ),
-          'contribution_no_periods' => array(
-            'title' => ts('Number of periods to show'),
+          'contribution_timeframe' => array(
+            'title' => ts('Number of months to look back'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
-            'default' => 4,
             'type' => CRM_Report_Form::OP_INT,
-            'options' => array(1 => 1, 2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6 ),
+            'default' => 60,
           ),
         )
       ),
@@ -118,16 +117,23 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   function constrainedFromClause(){
     $this->constructRanges(array(
       'cutoff_date' => 'receive_date_value',
+      'start_offset' => 'contribution_timeframe_value',
+      'start_offset_unit' => 'month',
       'offset_unit' => 'month',
       'offset' => 'contribution_baseline_interval_value',
       'catchment_offset' => 'contribution_renewal_catchment_value',
       'catchment_offset_unit' => 'month',
-      'no_periods' => 'contribution_no_periods_value',
-      'statuses' => array('renewals, lapsed')
+      'catchment_offset_type' => 'allprior', ///
+      'no_periods' => 2,
+      'statuses' => array('new', 'recovered', 'renewed'),
       )
     );
     return array(
-      'timebased_contribution_from_contact'
+      'timebased_contribution_from_contact' => array(
+        array(
+          'statuses' => array('new', 'recovered', 'renewed'),
+        )
+      )
     );
   }
 
@@ -139,13 +145,15 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
       $columns = array(
         'from_date' => ts('From date'),
         'to_date' => ts('To Date'),
-        'renewals' => ts('Renewals'),
-        'lapsed' => ts('Lapsed')
+        'renewed' => ts('Renewed'),
+        'recovered' => ts('Re-activated'),
+        'new' => ts('New'),
       );
       foreach ($columns as $column => $title){
         $select[]= " $column ";
         $this->_columnHeaders[$column] = array('title' => $title);
       }
+      $select[] = 'range_name';
       $this->_select = " SELECT " . implode(', ', $select);
     }
   }
@@ -168,5 +176,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   function postProcess() {
     parent::postProcess();
   }
+
+
 }
 

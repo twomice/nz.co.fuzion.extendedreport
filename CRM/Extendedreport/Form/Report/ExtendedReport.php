@@ -212,7 +212,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
 
   /*
    * Override exists purely to handle unusual date fields by passing field metadata to date clause
-   * Nothing else changed
+   * Also store where clauses to an array
    */
   function where() {
     $whereClauses = $havingClauses = array();
@@ -368,7 +368,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
    *
    **/
   function unsetBaseTableStatsFieldsWhereNoGroupBy(){
-    if(empty($this->_groupByArray)){
+    if(empty($this->_groupByArray) && !empty($this->_columns[$this->_baseTable]['fields'])){
       foreach($this->_columns[$this->_baseTable]['fields'] as $fieldname => $field){
         if(isset( $field['statistics'])){
           unset($this->_columns[$this->_baseTable]['fields'][$fieldname]['statistics']);
@@ -690,7 +690,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     // modifying column headers before using it to build result set i.e $rows.
     $rows = array();
     $this->buildRows($sql, $rows);
-
+dpm($sql);
     // format result set.
     $this->formatDisplay($rows);
 
@@ -2918,9 +2918,6 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
          'rightTable' => 'civicrm_tag',
          'callback' => 'joinEntityTagFromContact',
        ),
-      'timebased_contribution_from_contact' => array(
-        'callback' => 'joinContributionMulitplePeriods',
-        ),
     );
   }
 
@@ -3361,8 +3358,8 @@ ON ({$this->_aliases['civicrm_event']}.id = {$this->_aliases['civicrm_participan
   /*
 * Retrieve text for contribution type from pseudoconstant
 */
-  function alterContributionType($value, &$row) {
-    return is_string(CRM_Contribute_PseudoConstant::contributionType($value, FALSE)) ? CRM_Contribute_PseudoConstant::contributionType($value, FALSE) : '';
+  function alterFinancialType($value, &$row) {
+    return is_string(CRM_Contribute_PseudoConstant::financialType($value, FALSE)) ? CRM_Contribute_PseudoConstant::financialType($value, FALSE) : '';
   }
   /*
 * Retrieve text for contribution status from pseudoconstant
