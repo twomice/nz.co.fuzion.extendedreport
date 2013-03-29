@@ -209,17 +209,15 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     }
     $this->selectableCustomDataFrom();
   }
+  function constrainedWhere(){
 
+  }
   /*
    * Override exists purely to handle unusual date fields by passing field metadata to date clause
    * Also store where clauses to an array
    */
   function where() {
     $whereClauses = $havingClauses = array();
-    if($this->_preConstrained){
-      $this->_where = ' ';
-      return;
-    }
     foreach ($this->_columns as $tableName => $table) {
       if (array_key_exists('filters', $table)) {
         foreach ($table['filters'] as $fieldName => $field) {
@@ -690,7 +688,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     // modifying column headers before using it to build result set i.e $rows.
     $rows = array();
     $this->buildRows($sql, $rows);
-dpm($sql);
+
     // format result set.
     $this->formatDisplay($rows);
 
@@ -775,7 +773,7 @@ dpm($sql);
       $this->select();
       $this->from();
       $this->customDataFrom();
-      $this->where();
+      $this->constrainedWhere();
     }
     $this->groupBy();
     $this->orderBy();

@@ -46,6 +46,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
+    $this->_statuses = array('renewed', 'lapsed');
     $this->barChartLegend = ts('Subsequent contributions for Contributors in Base Period');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
@@ -88,7 +89,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['title'] = 'Cut-off date';
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['operations'] = array('to' =>  'Is equal to');
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['default'] = date('m/d/Y',strtotime('31 Dec last year'));
-   // $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
+    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
     $this->_groupFilter = TRUE;
@@ -116,16 +117,6 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   }
 
   function constrainedFromClause(){
-    $this->constructRanges(array(
-      'cutoff_date' => 'receive_date_value',
-      'offset_unit' => 'month',
-      'offset' => 'contribution_baseline_interval_value',
-      'catchment_offset' => 'contribution_renewal_catchment_value',
-      'catchment_offset_unit' => 'month',
-      'no_periods' => 'contribution_no_periods_value',
-      'statuses' => array('renewals, lapsed')
-      )
-    );
     return array(
       'timebased_contribution_from_contact'
     );
@@ -139,7 +130,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
       $columns = array(
         'from_date' => ts('From date'),
         'to_date' => ts('To Date'),
-        'renewals' => ts('Renewals'),
+        'renewed' => ts('Renewals'),
         'lapsed' => ts('Lapsed')
       );
       foreach ($columns as $column => $title){
@@ -165,8 +156,18 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
     return $statistics;
   }
 
-  function postProcess() {
-    parent::postProcess();
+  function beginPostProcess() {
+    parent::beginPostProcess();
+    $this->constructRanges(array(
+      'cutoff_date' => 'receive_date_value',
+      'offset_unit' => 'month',
+      'offset' => 'contribution_baseline_interval_value',
+      'catchment_offset' => 'contribution_renewal_catchment_value',
+      'catchment_offset_unit' => 'month',
+      'no_periods' => 'contribution_no_periods_value',
+      'statuses' => array('renewals, lapsed')
+    )
+    );
   }
 }
 

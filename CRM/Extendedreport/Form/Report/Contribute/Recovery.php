@@ -42,11 +42,14 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
   protected $_charts = array(
     '' => 'Tabular',
     'barChart' => 'Bar Chart',
+    'multiplePieChart' => 'Pie Chart',
   );
 
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
+    $this->_statuses = array('renewed', 'lapsed');
+
     $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
@@ -87,7 +90,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['title'] = 'Cut-off date';
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['operations'] = array('to' =>  'Is equal to');
     $this->_columns['civicrm_contribution']['filters'] ['receive_date']['default'] = date('m/d/Y',strtotime('31 Dec last year'));
-   // $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
+    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
     $this->_groupFilter = TRUE;
@@ -157,7 +160,16 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
     return $statistics;
   }
 
-  function postProcess() {
+/**
+ * (non-PHPdoc)
+ * @see CRM_Extendedreport_Form_Report_ExtendedReport::beginPostProcess()
+ */
+  function beginPostProcess() {
+    parent::beginPostProcess();
+    $this->setReportingStartDate(array(
+      'start_offset' => 'contribution_timeframe_value',
+      'start_offset_unit' => 'month',)
+    );
     $this->constructRanges(array(
       'cutoff_date' => 'receive_date_value',
       'start_offset' => 'contribution_timeframe_value',
@@ -171,15 +183,6 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
       'statuses' => array('lapsed', 'renewed'),
     )
     );
-
-    $this->setReportingStartDate(array(
-      'start_offset' => 'contribution_timeframe_value',
-      'start_offset_unit' => 'month',)
-    );
-    parent::postProcess();
-
   }
-
-
 }
 

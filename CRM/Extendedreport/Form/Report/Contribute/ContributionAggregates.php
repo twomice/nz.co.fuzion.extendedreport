@@ -67,6 +67,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_reportingStartDate = NULL;
   protected $_catchmentType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
   protected $_barChartLegend = NULL;
+  protected $_baseEntity = NULL;
   /**
    *
    * @var array statuses to include in report
@@ -77,7 +78,26 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @param array $rows
    */
   function buildChart(&$rows) {
+    dpm($this->_params);
     $graphData = array();
+    if($this->_params['charts'] == 'multiplePieChart'){
+      return $this->mulitplePieChart($rows, $graphData);
+    }
+
+    foreach ($rows as $row) {
+      $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
+      $graphData['end_date'][] = $row['to_date'];
+      foreach ($this->_statuses as $status){
+        $graphData['values'][] = array(
+          (integer) $row[$status],
+        );
+      }
+    }
+    $graphData['labels'] = array(
+      'Renewed',
+      'Lapsed'
+    );
+
     // build the chart.
     $config = CRM_Core_Config::Singleton();
     $graphData['xname'] = ts('Base contribution period');
@@ -90,33 +110,57 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
         (integer) $row['lapsed']
       );
     }
-    $graphData['labels'] = array(
-      'Renewed',
-      'Lapsed'
-    );
+
     $graphData['legend'] = ts($this->_barChartLegend);
     CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, 'barChartStack');
     $this->assign('chartType', $this->_params['charts']);
   }
 
+  function mulitplePieChart(&$rows, $graphData){
+    $graphData = array();
+    foreach ($rows as $index => $row) {
+      $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
+      $graphData['end_date'][] = $row['to_date'];
+      foreach ($this->_statuses as $status){
+        $graphData['value'][] =
+          (integer) $row[$status]
+        ;
+      }
+    }
+    $graphData['labels'] = array(
+      'Renewed',
+      'Lapsed'
+    );
+    // build the chart.
+    $config             = CRM_Core_Config::Singleton();
+     $graphData['xname'] = 'x';
+     $graphData['yname'] = "Amount ({$config->defaultCurrency})";
+     $chartInfo = array('legend' => $this->_barChartLegend);
+     $chartInfo['xname'] = ts('Base contribution period');
+     $chartInfo['yname'] = ts("Number of Donors");
+     $chartData = CRM_Utils_OpenFlashChart::reportChart( $graphData, 'pieChart', $this->_statuses, $chartInfo);
+     $this->assign('chartType', 'pieChart');
+     $this->assign('chartRow' . $index, $chartData);
+  }
+
+
   function alterDisplay(&$rows){
     foreach ($rows as $index => &$row){
       foreach ($this->_statuses as $status){
         if(array_key_exists($status, $row)){
-          $statusUrl = CRM_Report_Utils_Report::getNextUrl('contribute/aggregatedetails',
-          "reset=1&force=1&receive_date_from={$row['from_date']}&receive_date_to={$row['to_date']}
-          &catchment_date_from=". $this->_ranges['interval_' . $index]['catchment_from_date'] .
-          "&catchment_date_to=". $this->_ranges['interval_' . $index]['catchment_to_date'] .
-          "&type={$status}",
+          $statusUrl = CRM_Report_Utils_Report::getNextUrl(
+          'contribute/aggregatedetails',
+          "reset=1&force=1&receive_date_from=" . date('Ymd', strtotime($row['from_date']))
+          . "&receive_date_to=" . date('Ymd', strtotime($row['to_date']))
+          . "&catchment_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_from_date']))
+          . "&catchment_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_to_date']))
+          . "&behaviour_type_value={$status}",
           $this->_absoluteUrl,
-          $this->_id,
+          NULL,
           $this->_drilldownReport
           );
           $row[$status . '_link'] = $statusUrl;
         }
-      }
-      if(!empty($row['recovered_link'])){
-        $row['recovered_link'] = $url;
       }
     }
     parent::alterDisplay($rows);
@@ -142,11 +186,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'start_offset_unit',
     );
     foreach ($vars as $var) {
-      if (! empty($this->_params[$extra[$var]])) {
+      if (isset($extra[$var]) && !empty($this->_params[$extra[$var]])) {
         $$var = $this->_params[$extra[$var]];
       }
       else {
-        $$var = $extra[$var];
+        $$var = empty($extra[$var]) ? NULL : $extra[$var];
       }
     }
     // start of our period is the cutoff date - the sum of all our periods + one day (as ranges expected to run 01 Jan to 31 Dec etc)
@@ -200,13 +244,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   function constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit){
     $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
     $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
+    $rangeCatchmentEnd = date('Y-m-d',  strtotime('- 1 day', strtotime($rangestart)));
+    $rangeCatchmentStart = date('Y-m-d', strtotime(" - $catchment_offset $catchment_offset_unit", strtotime('+ 1 day', strtotime($rangeCatchmentEnd))));
     if($this->_reportingStartDate && $this->_catchmentType == 'allprior'){
       $rangeCatchmentStart = $this->_reportingStartDate;
     }
-    else{
-      $rangeCatchmentStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
-    }
-    $rangeCatchmentEnd = date('Y-m-d',  strtotime('- 1 day', strtotime($rangestart)));
     $this->_ranges['interval_' . $i] = array(
       'from_date' => $rangestart,
       'to_date' => $rangeEnd,
@@ -269,9 +311,10 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
        ", $this->_from);
     }
     else{
-      $this->createSummaryTable($tempTable, $extra['statuses']);
+      $this->createSummaryTable($tempTable);
       $this->_from = " FROM {$tempTable}_summary";
     }
+    $this->whereClauses = array();
   }
 
   function setReportingStartDate($startParams){
@@ -282,6 +325,16 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
   }
 
+  function constrainedWhere(){
+    if(empty($this->constrainedWhereClauses)){
+      $this->_where = "WHERE ( 1 ) ";
+      $this->_having = "";
+    }
+    else {
+      $this->_where = "WHERE " . implode(' AND ', $this->constrainedWhereClauses);
+    }
+
+  }
   /*
   * Here we have one period & a catchment
   * Receive date from / to are compulsory for this
@@ -306,19 +359,19 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     //@todo hack differentiating summary based on contact & contribution report
     // do something better
     if($this->_baseEntity == 'contribution'){
+
       $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
       $this->_from = str_replace('FROM' . $baseFrom , "
-        FROM  $tempTable tmptable
-        INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
-          ON tmptable.cid = {$this->_aliases['civicrm_contribution']}.contact_id
-          AND tmptable.interval_0_{$this->_params['behaviour_type_value']} = 1
+        FROM  {$this->_baseTable} tmpcontacts
+        INNER JOIN  $tempTable tmpConttable ON tmpcontacts.id = tmpConttable.cid
+        INNER JOIN civicrm_contact {$this->_aliases[$this->_baseTable]} ON {$this->_aliases[$this->_baseTable]}.id = tmpcontacts.id
+        LEFT JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
+          ON tmpConttable.cid = {$this->_aliases['civicrm_contribution']}.contact_id
           AND {$this->_aliases['civicrm_contribution']}.receive_date
             BETWEEN '{$this->_ranges['interval_0']['from_date']}' AND
             '{$this->_ranges['interval_0']['to_date']}'
-        INNER JOIN {$this->_baseTable} tmpcontacts ON tmpcontacts.id = {$this->_aliases['civicrm_contribution']}.contact_id
-        INNER JOIN civicrm_contact {$this->_aliases[$this->_baseTable]} ON {$this->_aliases[$this->_baseTable]}.id = tmpcontacts.id
-      ", $this->_from);
-
+        ", $this->_from);
+      $this->constrainedWhereClauses = array("tmpConttable.interval_0_{$this->_params['behaviour_type_value']} = 1");
     }
     else{
       $this->createSummaryTable($tempTable, $extra['statuses']);
@@ -441,7 +494,6 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     CRM_Core_DAO::executeQuery($createTablesql);
     CRM_Core_DAO::executeQuery($insertContributionRecordsSql);
     foreach ($inserts as $sql) {
-      dpm($sql);
       CRM_Core_DAO::executeQuery($sql);
     }
     return $tempTable;
@@ -488,7 +540,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   function getLapsedClause($rangeName, $rangeSpecs) {
     return "
         IF (
-          {$rangeName}_amount = 0 AND {$rangeName}_catch_amount > 0, 1,  0
+          {$rangeName}_amount > 0 AND {$rangeName}_catch_amount = 0, 1,  0
          )
     ";
   }

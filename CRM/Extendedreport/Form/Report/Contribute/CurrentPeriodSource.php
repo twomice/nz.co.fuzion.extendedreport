@@ -47,6 +47,7 @@ class CRM_Extendedreport_Form_Report_Contribute_CurrentPeriodSource extends CRM_
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
+    $this->_statuses = array('new', 'recovered', 'renewed');
     $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
@@ -115,19 +116,6 @@ class CRM_Extendedreport_Form_Report_Contribute_CurrentPeriodSource extends CRM_
   }
 
   function constrainedFromClause(){
-    $this->constructRanges(array(
-      'cutoff_date' => 'receive_date_value',
-      'start_offset' => 'contribution_timeframe_value',
-      'start_offset_unit' => 'month',
-      'offset_unit' => 'month',
-      'offset' => 'contribution_baseline_interval_value',
-      'catchment_offset' => 'contribution_renewal_catchment_value',
-      'catchment_offset_unit' => 'month',
-      'catchment_offset_type' => 'allprior', ///
-      'no_periods' => 2,
-      'statuses' => array('new', 'recovered', 'renewed'),
-      )
-    );
     return array(
       'timebased_contribution_from_contact' => array(
         array(
@@ -173,8 +161,25 @@ class CRM_Extendedreport_Form_Report_Contribute_CurrentPeriodSource extends CRM_
     return $statistics;
   }
 
-  function postProcess() {
-    parent::postProcess();
+/**
+ * (non-PHPdoc)
+ * @see CRM_Extendedreport_Form_Report_ExtendedReport::beginPostProcess()
+ */
+  function beginPostProcess() {
+    parent::beginPostProcess();
+   $this->constructRanges(array(
+      'cutoff_date' => 'receive_date_value',
+      'start_offset' => 'contribution_timeframe_value',
+      'start_offset_unit' => 'month',
+      'offset_unit' => 'month',
+      'offset' => 'contribution_baseline_interval_value',
+      'catchment_offset' => 'contribution_renewal_catchment_value',
+      'catchment_offset_unit' => 'month',
+      'catchment_offset_type' => 'allprior', ///
+      'no_periods' => 2,
+      'statuses' => array('new', 'recovered', 'renewed'),
+      )
+    );
   }
 
 

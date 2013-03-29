@@ -55,7 +55,6 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
           'catchment_date' => array(
             'title' => ts('Catchment Date Range'),
             'pseudofield' => TRUE,
-            'default' => 12,
             'type' => CRM_Report_Form::OP_DATE,
             'operatorType' => CRM_Report_Form::OP_DATE,
             'required' => TRUE,
@@ -63,7 +62,6 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
           'behaviour_type' => array(
             'title' => ts('Donor Behavior'),
             'pseudofield' => TRUE,
-            'default' => 12,
             'type' => CRM_Report_Form::OP_STRING,
             'operatorType' => CRM_Report_Form::OP_SELECT,
             'required' => TRUE,
@@ -81,7 +79,9 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
         'order_by' => FALSE,
       )))
     + $this->getContactColumns();
-   // $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
+    $this->_columns['civicrm_contact']['fields']['display_name']['default']  = TRUE;
+    $this->_columns['civicrm_contact']['fields']['id']['default']  = TRUE;
+    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
     $this->_groupFilter = TRUE;
@@ -109,21 +109,6 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
   }
 
   function constrainedFromClause(){
-    $this->_ranges = array(
-      'interval_0' => array()
-    );
-    $dateFields = array('receive_date' => '', 'catchment_date' => 'catchment_');
-    foreach ($dateFields as $fieldName => $prefix){
-      $relative = CRM_Utils_Array::value("{$fieldName}_relative", $this->_params);
-      $from     = CRM_Utils_Array::value("{$fieldName}_from", $this->_params);
-      $to       = CRM_Utils_Array::value("{$fieldName}_to", $this->_params);
-      $fromTime = CRM_Utils_Array::value("{$fieldName}_from_time", $this->_params);
-      $toTime   = CRM_Utils_Array::value("{$fieldName}_to_time", $this->_params);
-      list($from, $to) = CRM_Report_Form::getFromTo($relative, $from, $to,  $fromTime, $toTime);
-      $this->_ranges['interval_0'][$prefix . 'from_date'] = DATE('Y-m-d', strtotime($from));
-      $this->_ranges['interval_0'][$prefix . 'to_date'] = DATE('Y-m-d', strtotime($to));
-    }
-    $this->_statuses = array($this->_params['behaviour_type_value']);
     return array(
       'single_contribution_comparison_from_contact'
     );
@@ -148,8 +133,39 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
     return $statistics;
   }
 
-  function postProcess() {
-    parent::postProcess();
+  function beginPostProcess() {
+    parent::beginPostProcess();
+    $this->_ranges = array(
+      'interval_0' => array()
+    );
+    $dateFields = array('receive_date' => '', 'catchment_date' => 'catchment_');
+    $earliestDate = date('Y-m-d');
+    $latestDate = date('Y-m-d', strtotime('50 years ago'));
+    foreach ($dateFields as $fieldName => $prefix){
+      $relative = CRM_Utils_Array::value("{$fieldName}_relative", $this->_params);
+      $from     = CRM_Utils_Array::value("{$fieldName}_from", $this->_params);
+      $to       = CRM_Utils_Array::value("{$fieldName}_to", $this->_params);
+      $fromTime = CRM_Utils_Array::value("{$fieldName}_from_time", $this->_params);
+      $toTime   = CRM_Utils_Array::value("{$fieldName}_to_time", $this->_params);
+      list($from, $to) = CRM_Report_Form::getFromTo($relative, $from, $to,  $fromTime, $toTime);
+      $this->_ranges['interval_0'][$prefix . 'from_date'] = DATE('Y-m-d', strtotime($from));
+      $this->_ranges['interval_0'][$prefix . 'to_date'] = DATE('Y-m-d', strtotime($to));
+      if(strtotime($from) < strtotime($earliestDate)){
+        $earliestDate = date('Y-m-d',strtotime($from));
+      }
+      if(strtotime($to) > strtotime($latestDate)){
+        $latestDate = date('Y-m-d', strtotime($to));
+      }
+
+    }
+    // now we will re-set the receive date range to reflect the largest
+    // & smallest dates we are interested in
+    $this->_params['report_date_from'] = $earliestDate;
+    $this->_params['report_date_to'] = $latestDate;
+    $this->_columns['civicrm_contribution']['filters']['report_date'] = $this->_columns['civicrm_contribution']['filters']['receive_date'];
+    $this->_columns['civicrm_contribution']['filters']['report_date']['title'] = 'Report Date Range';
+    $this->_columns['civicrm_contribution']['filters']['report_date']['pseudofield'] = FALSE;
+    $this->_statuses = array($this->_params['behaviour_type_value']);
   }
 
 
