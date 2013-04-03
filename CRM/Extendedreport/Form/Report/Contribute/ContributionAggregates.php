@@ -81,10 +81,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @var array statuses to include in report
    */
   protected $_statuses = array();
-  /**
-   * Build chart for display
-   * @param array $rows
-   */
+
+
   function buildChart(&$rows) {
     $graphData = array();
     foreach ($this->_statuses as $status){
@@ -337,9 +335,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
         $this->aliases['civicrm_contribution'] = 'contribution_civireport';
       }
       $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
-      $this->_from = str_replace('FROM' . $baseFrom , "FROM  $tempTable tmptable INNER JOIN civicrm_contribution
+      $this->_from = str_replace('FROM' . $baseFrom ,
+        "FROM  $tempTable tmptable INNER JOIN civicrm_contribution
        {$this->aliases['civicrm_contribution']} ON tmptable.cid = {$this->aliases['civicrm_contribution']}.contact_id
        AND tmptable.interval_0_{$this->_params['behaviour_type_value']} = 1
+       AND {$this->aliases['civicrm_contribution']}.is_test=0
        INNER JOIN $baseFrom ON {$this->_aliases[$this->_baseTable]}.id = {$this->_aliases['civicrm_contribution']}.contact_id
        ", $this->_from);
     }
@@ -464,6 +464,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   )
                   COLLATE='utf8_unicode_ci'
                   ENGINE=HEAP;";
+    $contributionClause = '';
     if (! empty($this->whereClauses['civicrm_contribution'])) {
       $contributionClause = " AND " . implode(' AND ', $this->whereClauses['civicrm_contribution']);
     }
@@ -476,6 +477,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
                   ON {$this->_aliases[$this->_baseTable]}.id =  {$this->_aliases['civicrm_contribution']}.contact_id
                   WHERE  {$this->_aliases['civicrm_contribution']}.contribution_status_id = 1
+                  AND {$this->_aliases['civicrm_contribution']}.is_test = 0
                   $contributionClause
                   GROUP BY {$this->_aliases[$this->_baseTable]}.id
                   ";

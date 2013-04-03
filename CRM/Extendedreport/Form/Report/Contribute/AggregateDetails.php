@@ -124,12 +124,14 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
             'criteria' => array_merge($criteria,array(
               'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['catchment_from_date'] ))
               . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['catchment_to_date'])),
+              'is_test = 0',
             ))
           ),
         'main' => array(
           'criteria' => array_merge($criteria, array(
             'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['from_date'] ))
             . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['to_date'])),
+            'is_test = 0',
           ))
         ),
         ),

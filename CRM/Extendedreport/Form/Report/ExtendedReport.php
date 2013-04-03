@@ -2075,25 +2075,29 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
           'receive_date' => array(
               'operatorType' => CRM_Report_Form::OP_DATE
             ),
-            $this->financialTypeField => array(
-              'title' => ts($this->financialTypeLabel),
-              'operatorType' => CRM_Report_Form::OP_MULTISELECT,
-              'options' => CRM_Contribute_PseudoConstant::$pseudoMethod(),
-              'type' => CRM_Utils_Type::T_INT,
-            ),
-          'payment_instrument_id' =>
-          array('title' => ts('Payment Type'),
-            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
-            'options' => CRM_Contribute_PseudoConstant::paymentInstrument(),
-            'type' => CRM_Utils_Type::T_INT,
-          ),
           'contribution_status_id' =>
           array('title' => ts('Contribution Status'),
             'operatorType' => CRM_Report_Form::OP_MULTISELECT,
             'options' => CRM_Contribute_PseudoConstant::contributionStatus(),
             'type' => CRM_Utils_Type::T_INT,
           ),
-          'contribution_is_test' =>  array(
+          $this->financialTypeField => array(
+            'title' => ts($this->financialTypeLabel),
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Contribute_PseudoConstant::$pseudoMethod(),
+            'type' => CRM_Utils_Type::T_INT,
+          ),
+          'payment_instrument_id' => array(
+            'title' => ts('Payment Type'),
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Contribute_PseudoConstant::paymentInstrument(),
+            'type' => CRM_Utils_Type::T_INT,
+          ),
+          'total_amount' => array(
+            'title' => ts('Contribution Amount'),
+            'type' => CRM_Utils_Type::T_MONEY,
+          ),
+/*          'contribution_is_test' =>  array(
             'type' => CRM_Report_Form::OP_INT,
             'operatorType' => CRM_Report_Form::OP_SELECT,
             'title' => ts("Contribution Mode"),
@@ -2102,10 +2106,8 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
             'hidden' => TRUE,
             'options' => array('0' => 'Live', '1' => 'Test'),
           ),
-          'total_amount' => array(
-            'title' => ts('Contribution Amount'),
-            'type' => CRM_Utils_Type::T_MONEY,
-            ),
+          */
+
         );
      if($options['order_by']){
       $fields['civicrm_contribution']['order_bys'] =
@@ -3167,6 +3169,7 @@ ON pp.membership_id = {$this->_aliases['civicrm_membership']}.id
     }
     $this->_from .= " LEFT JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
     ON {$this->_aliases['civicrm_contact']}.id = {$this->_aliases['civicrm_contribution']}.contact_id
+    AND {$this->_aliases['civicrm_contribution']}.is_test = 0
   ";
     }
 

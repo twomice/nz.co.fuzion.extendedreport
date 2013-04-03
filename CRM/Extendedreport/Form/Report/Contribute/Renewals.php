@@ -56,7 +56,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
           'contribution_baseline_interval' => array(
             'title' => ts('Contribution Time Interval'),
             'pseudofield' => TRUE,
-         //   'operatorType' => CRM_Report_Form::OP_SELECT,
+            'operatorType' => CRM_Report_Form::OP_INT,
             'default' => 12,
             'type' => CRM_Report_Form::OP_INT,
             'required' => TRUE,
