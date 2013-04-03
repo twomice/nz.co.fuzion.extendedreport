@@ -38,7 +38,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
   protected $_baseEntity = 'contribution';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
-
+  protected $_add2groupSupported = TRUE;
 
   protected $_charts = array(
     '' => 'Tabular',
