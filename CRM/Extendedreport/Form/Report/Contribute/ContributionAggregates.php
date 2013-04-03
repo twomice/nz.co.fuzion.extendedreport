@@ -55,9 +55,7 @@
  *    prior to the base period gave (reactivated) or didn't give (lapsed) in the base period
  *
  *    3) catchment is prior - in this case the catchment is a prior range but does not go back as far as
- *    the report universe unless it co-incides with it. This is not a required report & no work has been done
- *    (although it has been created in the hope it 'just works' & shows which base period
- *    contributions are renewals, reactivations & new )
+ *    the report universe unless it co-incides with it.
  *
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
@@ -153,12 +151,39 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
 
   function alterDisplay(&$rows){
+    $potentialCriteria = array(
+      'financial_type_id_value',
+      'financial_type_id_op',
+      'payment_instrument_id_op',
+      'payment_instrument_id_value',
+      'contribution_status_id_value',
+      'contribution_status_id_op',
+      'contribution_is_test_op',
+      'contribution_is_test_value',
+      'total_amount_min',
+      'total_amount_max',
+      'total_amount_op',
+      'total_amount_value',
+      'tagid_op',
+      'tagid_value',
+      'gid_op',
+      'gid_value'
+      );
+    $queryURL = "reset=1&force=1";
+    foreach ($potentialCriteria as $criterion){
+      if(empty($this->_params[$criterion])){
+        continue;
+      }
+      $criterionValue = is_array($this->_params[$criterion]) ? implode(',', $this->_params[$criterion]) : $this->_params[$criterion];
+      $queryURL .= "&{$criterion}=" . $criterionValue;
+    }
     foreach ($rows as $index => &$row){
       foreach ($this->_statuses as $status){
         if(array_key_exists($status, $row)){
           $statusUrl = CRM_Report_Utils_Report::getNextUrl(
           'contribute/aggregatedetails',
-          "reset=1&force=1&receive_date_from=" . date('Ymd', strtotime($row['from_date']))
+          $queryURL
+          . "&receive_date_from=" . date('Ymd', strtotime($row['from_date']))
           . "&receive_date_to=" . date('Ymd', strtotime($row['to_date']))
           . "&catchment_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_from_date']))
           . "&catchment_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_to_date']))
@@ -387,6 +412,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
   }
 
+
   /**
   * Build array of contributions against contact
   *  Ideally this function works from the following params
@@ -548,7 +574,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   function getLapsedClause($rangeName, $rangeSpecs) {
     return "
         IF (
-          {$rangeName}_amount > 0 AND {$rangeName}_catch_amount = 0, 1,  0
+          {$rangeName}_amount = 0 AND {$rangeName}_catch_amount > 0, 1,  0
          )
     ";
   }

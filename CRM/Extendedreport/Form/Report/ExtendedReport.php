@@ -730,13 +730,11 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
    */
   function beginPostProcess() {
     $this->_params = $this->controller->exportValues($this->_name);
-
     if (empty($this->_params) &&
       $this->_force
     ) {
       $this->_params = $this->_formValues;
     }
-
     // hack to fix params when submitted from dashboard, CRM-8532
     // fields array is missing because form building etc is skipped
     // in dashboard mode for report
@@ -2016,6 +2014,12 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
     );
   }
 
+
+/**
+ *
+ * @param unknown_type $options
+ * @return Ambigous <multitype:multitype:NULL  , multitype:multitype:string  multitype:NULL  multitype:string NULL  , multitype:multitype:string  multitype:NULL string  multitype:number string boolean multitype:string  NULL  multitype:NULL  multitype:string NULL  >
+ */
   function getContributionColumns($options = array()) {
     $defaultOptions = array(
       'prefix' => '',
@@ -2045,10 +2049,11 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
           ),
           $this->financialTypeField => array(
             'title' => ts($this->financialTypeLabel),
-            'default' => TRUE,
+            'type' => CRM_Utils_Type::T_INT,
             'alter_display' => 'alterFinancialType',
           ),
           'payment_instrument_id' => array('title' => ts('Payment Instrument'),
+            'type' => CRM_Utils_Type::T_INT,
             'alter_display' => 'alterPaymentType',
           ),
           'source' => array('title' => 'Contribution Source'),
@@ -2057,9 +2062,10 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
           'receipt_date' => NULL,
           'fee_amount' => NULL,
           'net_amount' => NULL,
-          'total_amount' => array('title' => ts('Amount'),
-          'statistics' =>
-            array('sum' => ts('Total Amount')),
+          'total_amount' => array(
+            'title' => ts('Amount'),
+            'statistics' =>
+              array('sum' => ts('Total Amount')),
             'type' => CRM_Utils_Type::T_MONEY,
           ),
        );
@@ -2073,16 +2079,19 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
               'title' => ts($this->financialTypeLabel),
               'operatorType' => CRM_Report_Form::OP_MULTISELECT,
               'options' => CRM_Contribute_PseudoConstant::$pseudoMethod(),
+              'type' => CRM_Utils_Type::T_INT,
             ),
           'payment_instrument_id' =>
           array('title' => ts('Payment Type'),
             'operatorType' => CRM_Report_Form::OP_MULTISELECT,
             'options' => CRM_Contribute_PseudoConstant::paymentInstrument(),
+            'type' => CRM_Utils_Type::T_INT,
           ),
           'contribution_status_id' =>
           array('title' => ts('Contribution Status'),
             'operatorType' => CRM_Report_Form::OP_MULTISELECT,
             'options' => CRM_Contribute_PseudoConstant::contributionStatus(),
+            'type' => CRM_Utils_Type::T_INT,
           ),
           'contribution_is_test' =>  array(
             'type' => CRM_Report_Form::OP_INT,
@@ -2090,10 +2099,13 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
             'title' => ts("Contribution Mode"),
             'default' => 0,
             'name' => 'is_test',
+            'hidden' => TRUE,
             'options' => array('0' => 'Live', '1' => 'Test'),
           ),
-          'total_amount' =>
-          array('title' => ts('Contribution Amount')),
+          'total_amount' => array(
+            'title' => ts('Contribution Amount'),
+            'type' => CRM_Utils_Type::T_MONEY,
+            ),
         );
      if($options['order_by']){
       $fields['civicrm_contribution']['order_bys'] =
@@ -2121,6 +2133,43 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
         );
      }
      return $fields;
+  }
+  /**
+   *
+   * @param unknown_type $options
+   * @return Ambigous <multitype:multitype:NULL  , multitype:multitype:string  multitype:NULL  multitype:string NULL  , multitype:multitype:string  multitype:NULL string  multitype:number string boolean multitype:string  NULL  multitype:NULL  multitype:string NULL  >
+   */
+  function getContributionSummaryColumns($options = array()) {
+    $defaultOptions = array(
+      'prefix' => '',
+      'prefix_label' => '',
+      'fields' => true,
+      'group_by' => false,
+      'order_by' => true,
+      'filters' => true,
+      'defaults' => array(
+      ),
+    );
+    $options = array_merge($defaultOptions,$options);
+    $pseudoMethod = $this->financialTypePseudoConstant;
+    $fields =  array('civicrm_contribution_summary' . $options['prefix'] =>  array(
+      'dao' => 'CRM_Contribute_DAO_Contribution',
+      'grouping' => 'contribution-fields',
+    )
+    );
+
+    if($options['fields']){
+      $fields['civicrm_contribution_summary' . $options['prefix']]['fields'] =
+      array(
+        'contributionsummary'. $options['prefix'] => array(
+          'title' => $options['prefix_label'] . ts('Contribution Details'),
+          'default' => TRUE,
+          'required' => TRUE,
+        ),
+
+      );
+    }
+    return $fields;
   }
 
   function getContactColumns($options = array()) {
@@ -2916,6 +2965,11 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
          'rightTable' => 'civicrm_tag',
          'callback' => 'joinEntityTagFromContact',
        ),
+      'contribution_summary_table_from_contact' => array(
+        'leftTable' => 'civicrm_contact',
+        'rightTable' => 'civicrm_contribution_summary',
+        'callback' => 'joinContributionSummaryTableFromContact',
+      ),
     );
   }
 
@@ -3321,6 +3375,56 @@ ON ({$this->_aliases['civicrm_event']}.id = {$this->_aliases['civicrm_participan
 ({$this->_aliases['civicrm_event']}.is_template IS NULL OR
 {$this->_aliases['civicrm_event']}.is_template = 0)";
   }
+
+  /**
+   *
+   * @param string $prefix
+   * @param array $extra
+   */
+  function joinContributionSummaryTableFromContact($prefix, $extra){
+    $temporary = $this->_temporary;
+    $tempTable = 'civicrm_temp_contsumm'. $prefix . date('d_H_I') . rand(1, 10000);
+    $dropSql = "DROP TABLE IF EXISTS $tempTable";
+    $criteria = " is_test = 0 ";
+    if(!empty($extra['criteria'])){
+      $criteria .= " AND " . implode(' AND ', $extra['criteria']);
+    }
+    $createSql = "
+      CREATE TABLE $tempTable (
+      `contact_id` INT(10) UNSIGNED NOT NULL COMMENT 'Foreign key to civicrm_contact.id .',
+      `contributionsummary{$prefix}` VARCHAR(1024) NULL DEFAULT NULL COLLATE 'utf8_unicode_ci',
+      INDEX `contact_id` (`contact_id`)
+      )
+      COLLATE='utf8_unicode_ci'
+      ENGINE=InnoDB";
+    $insertSql = "
+      INSERT INTO
+      $tempTable
+      SELECT  contact_id,
+        CONCAT('<table><tr>',
+        GROUP_CONCAT(
+        CONCAT(
+        '<td>', DATE_FORMAT(receive_date,'%m-%d-%Y'),
+        '</td><td>', financial_type_name,
+        '</td><td>',total_amount, '</td>')
+        ORDER BY receive_date DESC SEPARATOR  '<tr></tr>' )
+      ,'</tr></table>') as contributions{$prefix}
+      FROM (SELECT contact_id, receive_date, total_amount, name as financial_type_name
+        FROM civicrm_contribution {$this->_aliases['civicrm_contribution']}
+        LEFT JOIN civicrm_" . substr($this->financialTypeField, 0,-3) . " financial_type
+        ON financial_type.id = {$this->_aliases['civicrm_contribution']}.{$this->financialTypeField}
+        WHERE $criteria
+        ORDER BY receive_date DESC ) as conts
+      GROUP BY contact_id
+      ORDER BY NULL
+     ";
+      CRM_Core_DAO::executeQuery($dropSql);
+      CRM_Core_DAO::executeQuery($createSql);
+      CRM_Core_DAO::executeQuery($insertSql);
+      $this->_from .= " LEFT JOIN $tempTable {$this->_aliases['civicrm_contribution_summary' . $prefix]}
+      ON {$this->_aliases['civicrm_contribution_summary' . $prefix]}.contact_id = {$this->_aliases['civicrm_contact']}.id";
+    }
+
 
   /*
    * Retrieve text for contribution type from pseudoconstant

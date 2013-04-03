@@ -43,7 +43,7 @@
       var data = google.visualization.arrayToDataTable(graphData);
       var options = {
          title: {/literal}'{$chartInfo.legend}'{literal},
-         backgroundColor: 'Ivory',
+         backgroundColor: '#0xf8f8d8',
          colors: ['#C3CC38','#C8B935'],
          chartArea: {height: '70%'},
          legend: {position: 'bottom'}

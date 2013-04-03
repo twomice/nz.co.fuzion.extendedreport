@@ -36,6 +36,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   protected $_temporary = '  ';
   protected $_baseTable = 'civicrm_contact';
   protected $_noFields = TRUE;
+  protected $_catchmentType = 'prior';
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
 
   protected $_charts = array(
@@ -55,19 +56,19 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
           'contribution_baseline_interval' => array(
             'title' => ts('Contribution Time Interval'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
+         //   'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
             'type' => CRM_Report_Form::OP_INT,
             'required' => TRUE,
-            'options' => array('6' => '6 months', '12' => '12 months'),
+       //     'options' => array('6' => '6 months', '12' => '12 months'),
           ),
           'contribution_renewal_catchment' => array(
             'title' => ts('Renewal timeframe'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
+     //       'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
             'type' => CRM_Report_Form::OP_INT,
-            'options' => array('12' => '12 months', '18' => '18 months'),
+      //      'options' => array('12' => '12 months', '18' => '18 months'),
           ),
           'contribution_no_periods' => array(
             'title' => ts('Number of periods to show'),
@@ -165,7 +166,6 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
       'catchment_offset' => 'contribution_renewal_catchment_value',
       'catchment_offset_unit' => 'month',
       'no_periods' => 'contribution_no_periods_value',
-      'statuses' => array('renewals, lapsed')
     )
     );
   }

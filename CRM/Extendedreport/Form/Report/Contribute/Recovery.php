@@ -58,19 +58,19 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
           'contribution_baseline_interval' => array(
             'title' => ts('Contribution Time Interval'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
+        //    'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
             'type' => CRM_Report_Form::OP_INT,
             'required' => TRUE,
-            'options' => array('6' => '6 months', '12' => '12 months'),
+          //  'options' => array('6' => '6 months', '12' => '12 months'),
           ),
           'contribution_renewal_catchment' => array(
             'title' => ts('Renewal timeframe'),
             'pseudofield' => TRUE,
-            'operatorType' => CRM_Report_Form::OP_SELECT,
+     //       'operatorType' => CRM_Report_Form::OP_SELECT,
             'default' => 12,
             'type' => CRM_Report_Form::OP_INT,
-            'options' => array('12' => '12 months', '18' => '18 months'),
+       //     'options' => array('12' => '12 months', '18' => '18 months'),
           ),
           'contribution_timeframe' => array(
             'title' => ts('Number of months to look back'),

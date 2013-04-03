@@ -42,7 +42,6 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
 
   protected $_charts = array(
     '' => 'Tabular',
-    'barChart' => 'Bar Chart',
   );
 
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
@@ -75,13 +74,15 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       ),
     );
     $this->_columns =  array_merge_recursive($this->reportFilters, $this->getContributionColumns(array(
-        'fields' => TRUE,
+        'fields' => FALSE,
         'order_by' => FALSE,
       )))
-    + $this->getContactColumns();
+    + $this->getContactColumns()
+    + $this->getContributionSummaryColumns(array('prefix' => 'main', 'prefix_label' => ts('Main Range ')))
+    + $this->getContributionSummaryColumns(array('prefix' => 'catchment', 'prefix_label' => ts('Catchment ')));
     $this->_columns['civicrm_contact']['fields']['display_name']['default']  = TRUE;
     $this->_columns['civicrm_contact']['fields']['id']['default']  = TRUE;
-    $this->_columns['civicrm_contribution']['filters'] ['receive_date']['pseudofield'] = TRUE;
+    $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
     $this->_groupFilter = TRUE;
@@ -104,13 +105,34 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       return array(
         'contribution_from_contact',
         'entitytag_from_contact',
-      ) + $this->constrainedFromClause();
+        'single_contribution_comparison_from_contact',
+     ) ;
     }
   }
 
   function constrainedFromClause(){
+    $criteria = array();
+    foreach ($this->whereClauses['civicrm_contribution'] as $clause){
+      if(strpos($clause, 'receive_date') == FALSE){
+        $criteria[] = $clause;
+      }
+    }
     return array(
-      'single_contribution_comparison_from_contact'
+      'single_contribution_comparison_from_contact',
+      'contribution_summary_table_from_contact' => array(
+        'catchment' => array(
+            'criteria' => array_merge($criteria,array(
+              'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['catchment_from_date'] ))
+              . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['catchment_to_date'])),
+            ))
+          ),
+        'main' => array(
+          'criteria' => array_merge($criteria, array(
+            'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['from_date'] ))
+            . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['to_date'])),
+          ))
+        ),
+        ),
     );
   }
 
@@ -158,6 +180,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       }
 
     }
+
     // now we will re-set the receive date range to reflect the largest
     // & smallest dates we are interested in
     $this->_params['report_date_from'] = $earliestDate;
