@@ -92,28 +92,20 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       return $this->mulitplePieChart($rows, $graphData);
     }
 
-    foreach ($rows as $row) {
+    foreach ($rows as $index => $row) {
       $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
       $graphData['end_date'][] = $row['to_date'];
+      $statusValues = array();
       foreach ($this->_statuses as $status){
-        $graphData['values'][] = array(
-          (integer) $row[$status],
-        );
+        $statusValues[] = (integer) $row[$status];
       }
+      $graphData['values'][] = $statusValues;
     }
 
     // build the chart.
     $config = CRM_Core_Config::Singleton();
     $graphData['xname'] = ts('Base contribution period');
     $graphData['yname'] = ts("Number of Donors");
-    foreach ($rows as $row) {
-      $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
-      $graphData['end_date'][] = $row['to_date'];
-      $graphData['values'][] = array(
-        (integer) $row['renewed'],
-        (integer) $row['lapsed']
-      );
-    }
 
     $graphData['legend'] = ts($this->_barChartLegend);
     CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, 'barChartStack');

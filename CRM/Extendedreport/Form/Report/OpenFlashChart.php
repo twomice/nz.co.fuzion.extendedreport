@@ -325,7 +325,7 @@ class barChartStack extends barchart {
       $totals[] = array_sum($valueArray);
       $tag = new ofc_tag($x, $valueArray[0]);
       if(array_sum($valueArray) == 0){
-        $tag->text('0%');
+        $tag->text('N/A');
       }
       else{
         $tag->text(round($valueArray[0]/ array_sum($valueArray) * 100) . '%');
