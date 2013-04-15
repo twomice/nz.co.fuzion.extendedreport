@@ -324,7 +324,12 @@ class barChartStack extends barchart {
       $this->chartElement->append_stack($valueArray);
       $totals[] = array_sum($valueArray);
       $tag = new ofc_tag($x, $valueArray[0]);
-      $tag->text(round($valueArray[0]/ array_sum($valueArray) * 100) . '%');
+      if(array_sum($valueArray) == 0){
+        $tag->text('0%');
+      }
+      else{
+        $tag->text(round($valueArray[0]/ array_sum($valueArray) * 100) . '%');
+      }
       $this->tags->append_tag($tag);
       $x++;
     }
