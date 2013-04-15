@@ -464,9 +464,16 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   )
                   COLLATE='utf8_unicode_ci'
                   ENGINE=HEAP;";
-    $contributionClause = '';
+    $contributionClause = $receiveClause = '';
     if (! empty($this->whereClauses['civicrm_contribution'])) {
-      $contributionClause = " AND " . implode(' AND ', $this->whereClauses['civicrm_contribution']);
+      foreach ($this->whereClauses['civicrm_contribution'] as $clause){
+        if(stristr($clause, 'receive_date')){
+          $receiveClause = " AND " . $clause;
+        }
+        else{
+          $contributionClause = " AND " . $clause;
+        }
+      }
     }
 
     $insertContributionRecordsSql = "
@@ -478,6 +485,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   ON {$this->_aliases[$this->_baseTable]}.id =  {$this->_aliases['civicrm_contribution']}.contact_id
                   WHERE  {$this->_aliases['civicrm_contribution']}.contribution_status_id = 1
                   AND {$this->_aliases['civicrm_contribution']}.is_test = 0
+                  $receiveClause
                   $contributionClause
                   GROUP BY {$this->_aliases[$this->_baseTable]}.id
                   ";
@@ -495,12 +503,14 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                     */
     foreach ($this->_ranges as $rangeName => &$rangeSpecs) {
       $inserts[] = " UPDATE $tempTable t,
-                  (  SELECT contact_id, sum(cont.total_amount) as total_amount, count(cont.id) as no_cont
-                  FROM $tempTable tmp
-                  INNER JOIN civicrm_contribution cont ON tmp.cid = cont.contact_id
-                  WHERE cont.receive_date
-                  BETWEEN '{$rangeSpecs['from_date']}' AND '{$rangeSpecs['to_date']} 23:59:59'
-                  GROUP BY contact_id
+                  (  SELECT contact_id, sum({$this->_aliases['civicrm_contribution']}.total_amount) as total_amount,
+                      count({$this->_aliases['civicrm_contribution']}.id) as no_cont
+                    FROM $tempTable tmp
+                    INNER JOIN civicrm_contribution  {$this->_aliases['civicrm_contribution']} ON tmp.cid = {$this->_aliases['civicrm_contribution']}.contact_id
+                    WHERE {$this->_aliases['civicrm_contribution']}.receive_date
+                    BETWEEN '{$rangeSpecs['from_date']}' AND '{$rangeSpecs['to_date']} 23:59:59'
+                    $contributionClause
+                    GROUP BY contact_id
                   ) as conts
                   SET {$rangeName}_amount = conts.total_amount,
                   {$rangeName}_no = no_cont
@@ -508,12 +518,15 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   ";
 
       $inserts[] = " UPDATE $tempTable t,
-                  (  SELECT contact_id, sum(cont.total_amount) as total_amount, count(cont.id) as no_cont
-                  FROM $tempTable tmp
-                  INNER JOIN civicrm_contribution cont ON tmp.cid = cont.contact_id
-                  WHERE cont.receive_date
-                  BETWEEN '{$rangeSpecs['catchment_from_date']}' AND '{$rangeSpecs['catchment_to_date']} 23:59:59'
-                  GROUP BY contact_id
+                  (  SELECT contact_id,
+                      sum({$this->_aliases['civicrm_contribution']}.total_amount) as total_amount,
+                      count({$this->_aliases['civicrm_contribution']}.id) as no_cont
+                    FROM $tempTable tmp
+                    INNER JOIN civicrm_contribution  {$this->_aliases['civicrm_contribution']} ON tmp.cid = {$this->_aliases['civicrm_contribution']}.contact_id
+                    WHERE {$this->_aliases['civicrm_contribution']}.receive_date
+                    BETWEEN '{$rangeSpecs['catchment_from_date']}' AND '{$rangeSpecs['catchment_to_date']} 23:59:59'
+                    $contributionClause
+                    GROUP BY contact_id
                   ) as conts
                   SET {$rangeName}_catch_amount = conts.total_amount,
                   {$rangeName}_catch_no = no_cont
