@@ -2056,6 +2056,12 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
             'type' => CRM_Utils_Type::T_INT,
             'alter_display' => 'alterPaymentType',
           ),
+          'campaign_id' => array(
+            'title' => ts('Campaign'),
+            'type' => CRM_Utils_Type::T_INT,
+            //@todo write this column
+         //   'alter_display' => 'alterCampaign',
+          ),
           'source' => array('title' => 'Contribution Source'),
           'trxn_id' => NULL,
           'receive_date' => array('default' => TRUE),
@@ -2096,6 +2102,12 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
           'total_amount' => array(
             'title' => ts('Contribution Amount'),
             'type' => CRM_Utils_Type::T_MONEY,
+          ),
+          'campaign_id' => array(
+            'title' => ts('Campaign'),
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'type' => CRM_Utils_Type::T_INT,
+            'options' => CRM_Campaign_BAO_Campaign::getCampaigns(),
           ),
 /*          'contribution_is_test' =>  array(
             'type' => CRM_Report_Form::OP_INT,
