@@ -1,4 +1,4 @@
- <?php
+<?php
 
 class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
   protected $_addressField = FALSE;
@@ -3478,6 +3478,15 @@ ON ({$this->_aliases['civicrm_event']}.id = {$this->_aliases['civicrm_participan
   function alterFinancialType($value, &$row) {
     return is_string(CRM_Contribute_PseudoConstant::financialType($value, FALSE)) ? CRM_Contribute_PseudoConstant::financialType($value, FALSE) : '';
   }
+
+  /*
+   * Retrieve text for contribution type from pseudoconstant
+  */
+  function alterFinancialType($value, &$row) {
+    $fn = $this->financialTypePseudoConstant;
+    return is_string(CRM_Contribute_PseudoConstant::$fn($value, FALSE)) ? CRM_Contribute_PseudoConstant::$fn($value, FALSE) : '';
+  }
+
   /*
 * Retrieve text for contribution status from pseudoconstant
 */
