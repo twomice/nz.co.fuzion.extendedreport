@@ -3472,12 +3472,6 @@ ON ({$this->_aliases['civicrm_event']}.id = {$this->_aliases['civicrm_participan
     return "<div id=contact-{$contactID} class='crm-entity'><span class='crm-editable crmf-nick_name crm-editable-enabled' data-action='create'>" . $value . "</span></div>";
   }
 
-  /*
-* Retrieve text for contribution type from pseudoconstant
-*/
-  function alterFinancialType($value, &$row) {
-    return is_string(CRM_Contribute_PseudoConstant::financialType($value, FALSE)) ? CRM_Contribute_PseudoConstant::financialType($value, FALSE) : '';
-  }
 
   /*
    * Retrieve text for contribution type from pseudoconstant
