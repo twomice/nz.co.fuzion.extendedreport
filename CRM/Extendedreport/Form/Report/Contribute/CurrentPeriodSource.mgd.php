@@ -44,7 +44,7 @@ return array (
     'params' =>
     array (
       'version' => 3,
-      'label' => 'Contribution Recovery Report',
+      'label' => 'Donor Source',
       'description' => 'Report displays whether donations in period are from new, renewed or re-activated givers',
       'class_name' => 'CRM_Extendedreport_Form_Report_Contribute_CurrentPeriodSource',
       'report_url' => 'contribute/currentperiodsource',
