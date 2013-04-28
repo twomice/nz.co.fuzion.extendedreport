@@ -450,7 +450,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
 
     $temporary = $this->_temporary;
-    $tempTable = 'civicrm_temp_conts' . date('d_H_I') . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_conts' . date('d_H_I') . rand(1, 10000);
     CRM_Core_DAO::executeQuery("DROP TABLE IF EXISTS $tempTable");
     $createTablesql = "
                   CREATE  $temporary TABLE $tempTable (
