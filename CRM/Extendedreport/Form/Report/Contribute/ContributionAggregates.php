@@ -341,11 +341,17 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
     $this->whereClauses = array();
   }
-
+/**
+ * Set the report date range where the report dates are defined by an end date and
+ * an offset
+ * @param array $startParams
+ *  - start_offset
+ *  - start_offset_unit
+ */
   function setReportingStartDate($startParams){
-    if (!empty($extra['start_offset']) && !$this->_reportingStartDate) {
-      $startOffset = CRM_Utils_Array::value($extra['start_offset'], $this->_params, $extra['start_offset']);
-      $startOffsetUnit = CRM_Utils_Array::value($extra['start_offset_unit'], $this->_params, $extra['start_offset_unit']);
+    if (!empty($startParams['start_offset']) && !$this->_reportingStartDate) {
+      $startOffset = CRM_Utils_Array::value($startParams['start_offset'], $this->_params, $startParams['start_offset']);
+      $startOffsetUnit = CRM_Utils_Array::value($startParams['start_offset_unit'], $this->_params, $startParams['start_offset_unit']);
       $this->_reportingStartDate = date('Y-m-d', strtotime("-  $startOffset  $startOffsetUnit ", strtotime($this->_params['receive_date_value'])));
     }
   }
