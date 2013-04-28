@@ -33,28 +33,28 @@
  *
  *
  * This is the base class for contribution aggregate reports. The report constructs a table
- * for a series of one or more data ranges and catchment ranges
- * The catchment range is the range to be compared against the main date range
+ * for a series of one or more data ranges and comparison ranges
+ * The comparison range is the range to be compared against the main date range
  *
  * 4 types of comparitive data can be derived
- *  1) renewals - people who gave in both the base & the catchment period
- *  2) lapsed - people who gave in the catchment period only
- *  3) new - people who gave in the base period but not the catchment period
- *  4) reactivations - people who gave in the new period but not the catchment period
+ *  1) renewals - people who gave in both the base & the comparison period
+ *  2) lapsed - people who gave in the comparison period only
+ *  3) new - people who gave in the base period but not the comparison period
+ *  4) reactivations - people who gave in the new period but not the comparison period
  *    but also gave on an earlier occasion during the report universe
  *
  *  Where are reportingStartDate is set the report 'universe' is only  those contributions after that date
  *
- *  The report builds up the pairs of ranges (base & catchment) for 3 main scenarios
- *    1) catchment is a future range, in this case the catchment period generally starts the day after the
+ *  The report builds up the pairs of ranges (base & comparison) for 3 main scenarios
+ *    1) comparison is a future range, in this case the comparison period generally starts the day after the
  *    main period. This is used for the renewals where we want to look at one period & see what happened to the
  *    donors from that period in the next period - did they lapse or renew
  *
- *    2) catchment is 'allprior' - ie. any contributions in the report universe prior to the base date
- *    are treated as catchment. This used for the Recovery report where we see if people who gave
+ *    2) comparison is 'allprior' - ie. any contributions in the report universe prior to the base date
+ *    are treated as comparison. This used for the Recovery report where we see if people who gave
  *    prior to the base period gave (reactivated) or didn't give (lapsed) in the base period
  *
- *    3) catchment is prior - in this case the catchment is a prior range but does not go back as far as
+ *    3) comparison is prior - in this case the comparison is a prior range but does not go back as far as
  *    the report universe unless it co-incides with it.
  *
  */
@@ -63,7 +63,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_add2groupSupported = FALSE;
   protected $_ranges = array();
   protected $_reportingStartDate = NULL;
-  protected $_catchmentType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
+  protected $_comparisonType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
   protected $_barChartLegend = NULL;
   protected $_baseEntity = NULL;
   /**
@@ -175,8 +175,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
           $queryURL
           . "&receive_date_from=" . date('Ymd', strtotime($row['from_date']))
           . "&receive_date_to=" . date('Ymd', strtotime($row['to_date']))
-          . "&catchment_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_from_date']))
-          . "&catchment_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['catchment_to_date']))
+          . "&comparison_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_from_date']))
+          . "&comparison_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_to_date']))
           . "&behaviour_type_value={$status}",
           $this->_absoluteUrl,
           NULL,
@@ -203,8 +203,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'no_periods',
       'offset_unit',
       'offset',
-      'catchment_offset',
-      'catchment_offset_unit',
+      'comparison_offset',
+      'comparison_offset_unit',
       'start_offset',
       'start_offset_unit',
     );
@@ -220,11 +220,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     $startDate = date('Y-m-d', strtotime("- " . ($no_periods * $offset) . " $offset_unit ", strtotime('+ 1 day', strtotime($cutoff_date))));
     $this->_ranges = array();
     for($i = 0; $i < $no_periods; $i ++) {
-      if($this->_catchmentType  == 'future'){
-        $this->constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit);
+      if($this->_comparisonType  == 'future'){
+        $this->constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
-      if($this->_catchmentType == 'allprior' || $this->_catchmentType == 'prior'){
-        $this->constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit);
+      if($this->_comparisonType == 'allprior' || $this->_comparisonType == 'prior'){
+        $this->constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
     }
     return $this->_ranges;
@@ -236,21 +236,21 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
  * @param integer $no_periods
  * @param string $offset_unit
  * @param integer $offset
- * @param string $catchment_offset
- * @param integer $catchment_offset_unit
+ * @param string $comparison_offset
+ * @param integer $comparison_offset_unit
  * @param string $start_offset
  * @param integer $start_offset_unit
  */
-  function constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit){
+  function constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit){
     $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
     $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
-    $rangeCatchmentStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
-    $rangeCatchmentEnd = date('Y-m-d', strtotime(" + $catchment_offset $catchment_offset_unit", strtotime('- 1 day', strtotime($rangeCatchmentStart))));
+    $rangeComparisonStart = date('Y-m-d', strtotime(' + 1 day', strtotime($rangeEnd)));
+    $rangeComparisonEnd = date('Y-m-d', strtotime(" + $comparison_offset $comparison_offset_unit", strtotime('- 1 day', strtotime($rangeComparisonStart))));
     $this->_ranges['interval_' . $i] = array(
       'from_date' => $rangestart,
       'to_date' => $rangeEnd,
-      'catchment_from_date' => $rangeCatchmentStart,
-      'catchment_to_date' => $rangeCatchmentEnd
+      'comparison_from_date' => $rangeComparisonStart,
+      'comparison_to_date' => $rangeComparisonEnd
     );
   }
 
@@ -261,22 +261,22 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @param integer $no_periods
    * @param string $offset_unit
    * @param integer $offset
-   * @param string $catchment_offset
-   * @param integer $catchment_offset_unit
+   * @param string $comparison_offset
+   * @param integer $comparison_offset_unit
    */
-  function constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $catchment_offset, $catchment_offset_unit, $start_offset, $start_offset_unit){
+  function constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit){
     $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
     $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
-    $rangeCatchmentEnd = date('Y-m-d',  strtotime('- 1 day', strtotime($rangestart)));
-    $rangeCatchmentStart = date('Y-m-d', strtotime(" - $catchment_offset $catchment_offset_unit", strtotime('+ 1 day', strtotime($rangeCatchmentEnd))));
-    if($this->_reportingStartDate && $this->_catchmentType == 'allprior'){
-      $rangeCatchmentStart = $this->_reportingStartDate;
+    $rangeComparisonEnd = date('Y-m-d',  strtotime('- 1 day', strtotime($rangestart)));
+    $rangeComparisonStart = date('Y-m-d', strtotime(" - $comparison_offset $comparison_offset_unit", strtotime('+ 1 day', strtotime($rangeComparisonEnd))));
+    if($this->_reportingStartDate && $this->_comparisonType == 'allprior'){
+      $rangeComparisonStart = $this->_reportingStartDate;
     }
     $this->_ranges['interval_' . $i] = array(
       'from_date' => $rangestart,
       'to_date' => $rangeEnd,
-      'catchment_from_date' => $rangeCatchmentStart,
-      'catchment_to_date' => $rangeCatchmentEnd
+      'comparison_from_date' => $rangeComparisonStart,
+      'comparison_to_date' => $rangeComparisonEnd
     );
   }
   /*
@@ -291,8 +291,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     *    'cutoff_date' => 'receive_date_to'
     *    'offset_unit' => 'year',
     *    'offset' => 1,
-    *    'catchment_offset' => 18,
-    *    'catchment_offset_unit' => 'month',
+    *    'comparison_offset' => 18,
+    *    'comparison_offset_unit' => 'month',
     *    'no_periods' => 4,
     *    'start_offset' = > 60
     *    'start_offset_unit' => 'month'
@@ -361,9 +361,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
   }
   /*
-  * Here we have one period & a catchment
+  * Here we have one period & a comparison
   * Receive date from / to are compulsory for this
-  * as are catchment_dates & type
+  * as are comparison_dates & type
   *
   */
   function joinContributionSinglePeriod($prefix, $extra) {
@@ -413,14 +413,14 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   *      'first_date_range' => array(
   *        'from_date' => '2009-01-01',
   *        'to_date' => '2010-06-06',
-  *        'catchment_from_date' => '2008-01-01',
-  *        'catchment_to_date' => '2009-01-01',
+  *        'comparison_from_date' => '2008-01-01',
+  *        'comparison_to_date' => '2009-01-01',
   *        ),
   *      'second_date_range => array(
   *        from_date' => '2011-01-01',
   *        'to_date' => '2011-06-06',
-  *        'catchment_from_date' => '2010-01-01',
-  *        'catchment_to_date' => '2010-06-01',),
+  *        'comparison_from_date' => '2010-01-01',
+  *        'comparison_to_date' => '2010-06-01',),
   */
   function constructComparisonTable() {
     $columnStr = '';
@@ -430,11 +430,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       $specs['between'] = "
       BETWEEN '{$specs['from_date']}'
       AND '{$specs['to_date']} 23:59:59'";
-      $specs['catchment_between'] = "
-        BETWEEN '{$specs['catchment_from_date']}'
-          AND '{$specs['catchment_to_date']} 23:59:59'";
+      $specs['comparison_between'] = "
+        BETWEEN '{$specs['comparison_from_date']}'
+          AND '{$specs['comparison_to_date']} 23:59:59'";
       $betweenClauses[] = " {$specs['between']}";
-      $betweenClauses[] = " {$specs['catchment_between']}";
+      $betweenClauses[] = " {$specs['comparison_between']}";
 
       $columnStr .= "  {$alias}_amount FLOAT NOT NULL default 0, {$alias}_no FLOAT NOT NULL default 0, ";
       $columnStr .= "  {$alias}_catch_amount FLOAT NOT NULL default 0, {$alias}_catch_no FLOAT NOT NULL default 0, ";
@@ -516,7 +516,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                     FROM $tempTable tmp
                     INNER JOIN civicrm_contribution  {$this->_aliases['civicrm_contribution']} ON tmp.cid = {$this->_aliases['civicrm_contribution']}.contact_id
                     WHERE {$this->_aliases['civicrm_contribution']}.receive_date
-                    BETWEEN '{$rangeSpecs['catchment_from_date']}' AND '{$rangeSpecs['catchment_to_date']} 23:59:59'
+                    BETWEEN '{$rangeSpecs['comparison_from_date']}' AND '{$rangeSpecs['comparison_to_date']} 23:59:59'
                     $contributionClause
                     GROUP BY contact_id
                   ) as conts
@@ -571,7 +571,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
  * @param string $rangeName
  */
  function getStatusClause($status, $rangeName, $rangeSpecs){
-   $fn = 'get' . ucfirst($status) . 'clause';
+   $fn = 'get' . ucfirst($status) . 'Clause';
    return $this->$fn($rangeName, $rangeSpecs);
  }
 
@@ -602,8 +602,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * Get Clause for Renewed
    * These are where the contribution happened in both periods
    * - note that the term 'renewal' & the term Recovered are easily confused
-   * but recovered is used where the catchment period is 'prior' but not 'priorall'
-   * so there is a period not covered in the catchment period but covered in the
+   * but recovered is used where the comparison period is 'prior' but not 'priorall'
+   * so there is a period not covered in the comparison period but covered in the
    * report 'universe'
    */
   function getRenewedClause($rangeName, $rangeFromDate) {

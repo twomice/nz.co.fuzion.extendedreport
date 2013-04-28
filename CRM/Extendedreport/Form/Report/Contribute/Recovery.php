@@ -37,7 +37,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
   protected $_baseTable = 'civicrm_contact';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
-  protected $_catchmentType = 'allprior';
+  protected $_comparisonType = 'allprior';
 
   protected $_charts = array(
     '' => 'Tabular',
@@ -64,7 +64,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
             'required' => TRUE,
           //  'options' => array('6' => '6 months', '12' => '12 months'),
           ),
-          'contribution_renewal_catchment' => array(
+          'contribution_renewal_comparison' => array(
             'title' => ts('Renewal timeframe'),
             'pseudofield' => TRUE,
             'operations' => array('eq' => ts('Is equal to'),),
@@ -176,9 +176,9 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
       'start_offset_unit' => 'month',
       'offset_unit' => 'month',
       'offset' => 'contribution_baseline_interval_value',
-      'catchment_offset' => 'contribution_renewal_catchment_value',
-      'catchment_offset_unit' => 'month',
-      'catchment_offset_type' => 'allprior', ///
+      'comparison_offset' => 'contribution_renewal_comparison_value',
+      'comparison_offset_unit' => 'month',
+      'comparison_offset_type' => 'allprior', ///
       'no_periods' => 2,
       'statuses' => array('lapsed', 'renewed'),
     )

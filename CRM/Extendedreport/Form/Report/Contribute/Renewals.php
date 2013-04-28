@@ -36,7 +36,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   protected $_temporary = '  ';
   protected $_baseTable = 'civicrm_contact';
   protected $_noFields = TRUE;
-  protected $_catchmentType = 'prior';
+  protected $_comparisonType = 'prior';
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
 
   protected $_charts = array(
@@ -62,7 +62,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
             'required' => TRUE,
             'operations' => array('eq' => 'Is equal to'),
           ),
-          'contribution_renewal_catchment' => array(
+          'contribution_renewal_comparison' => array(
             'title' => ts('Renewal timeframe'),
             'pseudofield' => TRUE,
             'operations' => array('eq' => 'Is equal to'),
@@ -163,8 +163,8 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
       'cutoff_date' => 'receive_date_value',
       'offset_unit' => 'month',
       'offset' => 'contribution_baseline_interval_value',
-      'catchment_offset' => 'contribution_renewal_catchment_value',
-      'catchment_offset_unit' => 'month',
+      'comparison_offset' => 'contribution_renewal_comparison_value',
+      'comparison_offset_unit' => 'month',
       'no_periods' => 'contribution_no_periods_value',
     )
     );

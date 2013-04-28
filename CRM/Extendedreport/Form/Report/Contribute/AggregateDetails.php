@@ -51,8 +51,8 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       'civicrm_contribution' => array(
         'filters' => array(
           'receive_date' => array(),// just to make it first
-          'catchment_date' => array(
-            'title' => ts('Catchment Date Range'),
+          'comparison_date' => array(
+            'title' => ts('Comparison Date Range'),
             'pseudofield' => TRUE,
             'type' => CRM_Report_Form::OP_DATE,
             'operatorType' => CRM_Report_Form::OP_DATE,
@@ -79,7 +79,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       )))
     + $this->getContactColumns()
     + $this->getContributionSummaryColumns(array('prefix' => 'main', 'prefix_label' => ts('Main Range ')))
-    + $this->getContributionSummaryColumns(array('prefix' => 'catchment', 'prefix_label' => ts('Catchment ')));
+    + $this->getContributionSummaryColumns(array('prefix' => 'comparison', 'prefix_label' => ts('Comparison ')));
     $this->_columns['civicrm_contact']['fields']['display_name']['default']  = TRUE;
     $this->_columns['civicrm_contact']['fields']['id']['default']  = TRUE;
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
@@ -120,10 +120,10 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
     return array(
       'single_contribution_comparison_from_contact',
       'contribution_summary_table_from_contact' => array(
-        'catchment' => array(
+        'comparison' => array(
             'criteria' => array_merge($criteria,array(
-              'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['catchment_from_date'] ))
-              . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['catchment_to_date'])),
+              'receive_date BETWEEN '  . date('Ymd000000', strtotime($this->_ranges['interval_0']['comparison_from_date'] ))
+              . ' AND ' . date('Ymd235959', strtotime($this->_ranges['interval_0']['comparison_to_date'])),
               'is_test = 0',
             ))
           ),
@@ -162,7 +162,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
     $this->_ranges = array(
       'interval_0' => array()
     );
-    $dateFields = array('receive_date' => '', 'catchment_date' => 'catchment_');
+    $dateFields = array('receive_date' => '', 'comparison_date' => 'comparison_');
     $earliestDate = date('Y-m-d');
     $latestDate = date('Y-m-d', strtotime('50 years ago'));
     foreach ($dateFields as $fieldName => $prefix){
