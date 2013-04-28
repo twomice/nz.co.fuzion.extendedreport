@@ -44,7 +44,7 @@ return array (
     'params' =>
     array (
       'version' => 3,
-      'label' => 'Contribution',
+      'label' => 'Donor Behaviour Detail',
       'description' => 'Report displays details for Renewal & Recovery Reports',
       'class_name' => 'CRM_Extendedreport_Form_Report_Contribute_AggregateDetails',
       'report_url' => 'contribute/aggregatedetails',
