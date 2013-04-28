@@ -79,7 +79,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       )))
     + $this->getContactColumns()
     + $this->getContributionSummaryColumns(array('prefix' => 'main', 'prefix_label' => ts('Main Range ')))
-    + $this->getContributionSummaryColumns(array('prefix' => 'comparison', 'prefix_label' => ts('Comparison ')));
+    + $this->getContributionSummaryColumns(array('prefix' => 'comparison', 'prefix_label' => ts('Comparison Range')));
     $this->_columns['civicrm_contact']['fields']['display_name']['default']  = TRUE;
     $this->_columns['civicrm_contact']['fields']['id']['default']  = TRUE;
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
