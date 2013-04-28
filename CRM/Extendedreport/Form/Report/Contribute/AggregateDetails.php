@@ -35,7 +35,7 @@
 class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates {
   protected $_temporary = '  ';
   protected $_baseTable = 'civicrm_contact';
-  protected $_baseEntity = 'contribution';
+  protected $_baseEntity = 'contact';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
   protected $_add2groupSupported = TRUE;

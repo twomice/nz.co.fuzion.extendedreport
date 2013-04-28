@@ -387,27 +387,22 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     // because in single we are using the receive date
 
     $tempTable = $this->constructComparisonTable();
-    //@todo hack differentiating summary based on contact & contribution report
-    // do something better
+    $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
+    $baseClause = "
+      FROM  {$this->_baseTable} tmpcontacts
+      INNER JOIN  $tempTable tmpConttable ON tmpcontacts.id = tmpConttable.cid
+      INNER JOIN civicrm_contact {$this->_aliases[$this->_baseTable]} ON {$this->_aliases[$this->_baseTable]}.id = tmpcontacts.id";
     if($this->_baseEntity == 'contribution'){
-
-      $baseFrom = " {$this->_baseTable} " . (empty($this->_aliases[$this->_baseTable]) ? '': $this->_aliases[$this->_baseTable]);
-      $this->_from = str_replace('FROM' . $baseFrom , "
-        FROM  {$this->_baseTable} tmpcontacts
-        INNER JOIN  $tempTable tmpConttable ON tmpcontacts.id = tmpConttable.cid
-        INNER JOIN civicrm_contact {$this->_aliases[$this->_baseTable]} ON {$this->_aliases[$this->_baseTable]}.id = tmpcontacts.id
+      // this will result in one line per contribution
+      $baseClause .= "
         LEFT JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
           ON tmpConttable.cid = {$this->_aliases['civicrm_contribution']}.contact_id
           AND {$this->_aliases['civicrm_contribution']}.receive_date
-            BETWEEN '{$this->_ranges['interval_0']['from_date']}' AND
-            '{$this->_ranges['interval_0']['to_date']}'
-        ", $this->_from);
-      $this->constrainedWhereClauses = array("tmpConttable.interval_0_{$this->_params['behaviour_type_value']} = 1");
+          BETWEEN '{$this->_ranges['interval_0']['from_date']}' AND
+          '{$this->_ranges['interval_0']['to_date']}'";
     }
-    else{
-      $this->createSummaryTable($tempTable, $extra['statuses']);
-      $this->_from = " FROM {$tempTable}_summary";
-    }
+    $this->_from = str_replace('FROM' . $baseFrom , $baseClause, $this->_from);
+    $this->constrainedWhereClauses = array("tmpConttable.interval_0_{$this->_params['behaviour_type_value']} = 1");
   }
 
 
