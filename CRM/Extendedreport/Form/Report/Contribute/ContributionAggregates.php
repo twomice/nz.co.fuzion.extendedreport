@@ -157,7 +157,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'tagid_op',
       'tagid_value',
       'gid_op',
-      'gid_value'
+      'gid_value',
       );
     $queryURL = "reset=1&force=1";
     foreach ($potentialCriteria as $criterion){
@@ -166,6 +166,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       }
       $criterionValue = is_array($this->_params[$criterion]) ? implode(',', $this->_params[$criterion]) : $this->_params[$criterion];
       $queryURL .= "&{$criterion}=" . $criterionValue;
+    }
+    if($this->_reportingStartDate){
+      $queryURL .= "&report_date_from=" . date('Ymd', strtotime($this->_reportingStartDate));
     }
     foreach ($rows as $index => &$row){
       foreach ($this->_statuses as $status){

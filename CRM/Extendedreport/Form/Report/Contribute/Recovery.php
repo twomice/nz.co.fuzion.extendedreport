@@ -37,7 +37,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
   protected $_baseTable = 'civicrm_contact';
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
-  protected $_comparisonType = 'allprior';
+  protected $_comparisonType = 'prior';
 
   protected $_charts = array(
     '' => 'Tabular',
@@ -48,7 +48,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
-    $this->_statuses = array('renewed', 'lapsed');
+    $this->_statuses = array('recovered', 'lapsed');
 
     $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
     $this->reportFilters = array(
@@ -64,7 +64,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
             'required' => TRUE,
           //  'options' => array('6' => '6 months', '12' => '12 months'),
           ),
-          'contribution_renewal_comparison' => array(
+          'contribution_recovered_comparison' => array(
             'title' => ts('Renewal timeframe'),
             'pseudofield' => TRUE,
             'operations' => array('eq' => ts('Is equal to'),),
@@ -134,7 +134,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
       $columns = array(
         'from_date' => ts('From date'),
         'to_date' => ts('To Date'),
-        'renewed' => ts('Recovery'),
+        'recovered' => ts('Recovered Donors'),
         'lapsed' => ts('Lapsed')
       );
       foreach ($columns as $column => $title){
@@ -176,11 +176,11 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
       'start_offset_unit' => 'month',
       'offset_unit' => 'month',
       'offset' => 'contribution_baseline_interval_value',
-      'comparison_offset' => 'contribution_renewal_comparison_value',
+      'comparison_offset' => 'contribution_recovered_comparison_value',
       'comparison_offset_unit' => 'month',
-      'comparison_offset_type' => 'allprior', ///
+      'comparison_offset_type' => 'prior', ///
       'no_periods' => 2,
-      'statuses' => array('lapsed', 'renewed'),
+      'statuses' => array('lapsed', 'recovered'),
     )
     );
   }

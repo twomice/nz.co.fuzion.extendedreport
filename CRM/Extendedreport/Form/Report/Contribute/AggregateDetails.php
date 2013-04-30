@@ -58,6 +58,13 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
             'operatorType' => CRM_Report_Form::OP_DATE,
             'required' => TRUE,
           ),
+          'report_date' => array(
+            'title' => ts('Report Date Range'),
+            'pseudofield' => TRUE,
+            'type' => CRM_Report_Form::OP_DATE,
+            'operatorType' => CRM_Report_Form::OP_DATE,
+            'required' => TRUE,
+          ),
           'behaviour_type' => array(
             'title' => ts('Donor Behavior'),
             'pseudofield' => TRUE,
@@ -65,9 +72,10 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
             'operatorType' => CRM_Report_Form::OP_SELECT,
             'required' => TRUE,
             'options' => array(
-              'renewed' => 'Renewed Donors',
-              'new' => 'New Donor',
-              'lapsed' => 'Lapsed Donors')
+              'renewed' => ts('Renewed Donors'),
+              'new' => ts('New Donor'),
+              'lapsed' => ts('Lapsed Donors'),
+              'recovered' => ts('Recovered Donors'))
           ),
 
         )
@@ -79,7 +87,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
       )))
     + $this->getContactColumns()
     + $this->getContributionSummaryColumns(array('prefix' => 'main', 'prefix_label' => ts('Main Range ')))
-    + $this->getContributionSummaryColumns(array('prefix' => 'comparison', 'prefix_label' => ts('Comparison Range')));
+    + $this->getContributionSummaryColumns(array('prefix' => 'comparison', 'prefix_label' => ts('Comparison Range ')));
     $this->_columns['civicrm_contact']['fields']['display_name']['default']  = TRUE;
     $this->_columns['civicrm_contact']['fields']['id']['default']  = TRUE;
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
@@ -162,7 +170,7 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
     $this->_ranges = array(
       'interval_0' => array()
     );
-    $dateFields = array('receive_date' => '', 'comparison_date' => 'comparison_');
+    $dateFields = array('receive_date' => '', 'comparison_date' => 'comparison_', 'report_date' => 'report_date');
     $earliestDate = date('Y-m-d');
     $latestDate = date('Y-m-d', strtotime('50 years ago'));
     foreach ($dateFields as $fieldName => $prefix){
