@@ -39,12 +39,12 @@
 return array (
   0 =>
   array (
-    'name' => 'Lapsed and Recovered Donors Report',
+    'name' => 'Lapsed and Recovered Contributors Report',
     'entity' => 'ReportTemplate',
     'params' =>
     array (
       'version' => 3,
-      'label' => 'Contribution Recovery Report',
+      'label' => 'Contributor Recovery Report',
       'description' => 'Report displays how many contributors have lapsed and been recovered',
       'class_name' => 'CRM_Extendedreport_Form_Report_Contribute_Recovery',
       'report_url' => 'contribute/recovery',
