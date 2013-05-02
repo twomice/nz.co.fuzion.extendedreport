@@ -35,27 +35,32 @@
  * This is the base class for contribution aggregate reports. The report constructs a table
  * for a series of one or more data ranges and comparison ranges
  * The comparison range is the range to be compared against the main date range
+ * A third range can be defined which is the report_range - currently only the 'from'
+ * part (reportingStartDate) of this is implemented
  *
  * 4 types of comparitive data can be derived
  *  1) renewals - people who gave in both the base & the comparison period
  *  2) lapsed - people who gave in the comparison period only
+ *  3) prior - people who gave in the report range before the main date range but not since
  *  3) new - people who gave in the base period but not the comparison period
  *  4) reactivations - people who gave in the new period but not the comparison period
  *    but also gave on an earlier occasion during the report universe
+ *
+ *    (not derived but easy to add are comparisons about increases & decreased in quantity/ amount)
  *
  *  Where are reportingStartDate is set the report 'universe' is only  those contributions after that date
  *
  *  The report builds up the pairs of ranges (base & comparison) for 3 main scenarios
  *    1) comparison is a future range, in this case the comparison period generally starts the day after the
- *    main period. This is used for the renewals where we want to look at one period & see what happened to the
- *    donors from that period in the next period - did they lapse or renew
+ *    main period. This is used where we want to look at one period & see what happened to the
+ *    donors from that period in the next period - did they lapse or renew (no reports use this at the moment)
  *
  *    2) comparison is 'allprior' - ie. any contributions in the report universe prior to the base date
  *    are treated as comparison. This used for the Recovery report where we see if people who gave
  *    prior to the base period gave (reactivated) or didn't give (lapsed) in the base period
  *
  *    3) comparison is prior - in this case the comparison is a prior range but does not go back as far as
- *    the report universe unless it co-incides with it.
+ *    the report universe unless it co-incides with it. This is used for the renewals report
  *
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
@@ -73,6 +78,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_statusLabels = array(
     'renewed' => 'Renewed',
     'lapsed' => 'Lapsed',
+    'prior' => 'All lapsed',
     'recovered' => 'Recovered',
     'new' => 'New',
     );
@@ -587,6 +593,17 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
         IF (
           {$rangeName}_amount = 0 AND {$rangeName}_catch_amount > 0, 1,  0
          )
+    ";
+  }
+
+  /**
+   * Get Clause for lapsed
+   */
+  function getPriorClause($rangeName, $rangeSpecs) {
+    return "
+    IF (
+    {$rangeName}_amount = 0 AND first_receive_date < '{$rangeSpecs['from_date']}', 1,  0
+    )
     ";
   }
   /**

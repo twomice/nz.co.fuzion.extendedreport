@@ -74,7 +74,8 @@ class CRM_Extendedreport_Form_Report_Contribute_AggregateDetails extends CRM_Ext
             'options' => array(
               'renewed' => ts('Renewed Donors'),
               'new' => ts('New Donor'),
-              'lapsed' => ts('Lapsed Donors'),
+              'lapsed' => ts('Lapsed Donors from Comparison Period'),
+              'prior' => ts('All Lapsed Donors'),
               'recovered' => ts('Recovered Donors'))
           ),
 

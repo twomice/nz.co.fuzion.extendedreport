@@ -48,7 +48,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
-    $this->_statuses = array('recovered', 'lapsed');
+    $this->_statuses = array('recovered', 'prior');
 
     $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
     $this->reportFilters = array(
@@ -135,7 +135,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
         'from_date' => ts('From date'),
         'to_date' => ts('To Date'),
         'recovered' => ts('Recovered Donors'),
-        'lapsed' => ts('Lapsed')
+        'prior' => ts('Lapsed')
       );
       foreach ($columns as $column => $title){
         $select[]= " $column ";
@@ -180,7 +180,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
       'comparison_offset_unit' => 'month',
       'comparison_offset_type' => 'prior', ///
       'no_periods' => 2,
-      'statuses' => array('lapsed', 'recovered'),
+      'statuses' => array('prior', 'recovered'),
     )
     );
   }
