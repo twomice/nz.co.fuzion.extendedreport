@@ -150,6 +150,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     $potentialCriteria = array(
       'financial_type_id_value',
       'financial_type_id_op',
+      'contribution_type_id_value',
+      'contribution_type_id_op',
       'payment_instrument_id_op',
       'payment_instrument_id_value',
       'contribution_status_id_value',
