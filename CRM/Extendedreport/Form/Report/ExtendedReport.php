@@ -794,7 +794,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
   }
 
   function generateTempTable(){
-    $tempTable = 'civicrm_temp_' . $this->_baseTable . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_' . $this->_baseTable . rand(1, 10000);
     $sql = "CREATE {$this->_temporary} TABLE $tempTable
       (`id` INT(10) UNSIGNED NULL DEFAULT '0',
         INDEX `id` (`id`)
@@ -3032,7 +3032,7 @@ ON {$this->_aliases[$prefix . 'civicrm_email']}.contact_id = {$this->_aliases[$p
   function joinEntityTagFromContact($prefix = '') {
     static $tmpTableName = null;
     if(empty($tmpTableName)){
-      $tmpTableName = 'tmp_exreport_entity_tag' . date('his');
+      $tmpTableName = 'civicrm_report_temp_entity_tag' . date('his');
     }
     $sql = "CREATE {$this->_temporary} TABLE $tmpTableName
     (
@@ -3068,9 +3068,9 @@ ON {$this->_aliases[$prefix . 'civicrm_email']}.contact_id = {$this->_aliases[$p
     static $tmpTableName = null;
     if(empty($tmpTableName)){
 
-    $tmpTableName = 'tmp_exreport_lastestActivity' . date('his');
-    $targetTable = 'tmp_exreport_target' . date('his');
-    $assigneeTable = 'tmp_exreport_assignee' . date('his');
+    $tmpTableName = 'civicrm_report_temp_lastestActivity' . date('his');
+    $targetTable = 'civicrm_report_temp_target' . date('his');
+    $assigneeTable = 'civicrm_report_temp_assignee' . date('his');
     $sql = "CREATE {$this->_temporary} TABLE $tmpTableName
    (
     `contact_id` INT(10) NULL,
@@ -3237,7 +3237,7 @@ ON {$this->_aliases['civicrm_membership']}.membership_type_id = {$this->_aliases
 
   function joinContributionFromLineItem() {
     $temporary = $this->_temporary;
-    $tempTable = 'civicrm_temp_report_line_items' . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_line_items' . rand(1, 10000);
     $createTablesql = "
     CREATE  $temporary TABLE $tempTable (
     `lid` INT(10) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'Line Item',
@@ -3296,7 +3296,7 @@ ON {$this->_aliases['civicrm_membership']}.membership_type_id = {$this->_aliases
 
   function joinLineItemFromContribution() {
     $temporary = $this->_temporary;// because we like to change this for debugging
-    $tempTable = 'civicrm_temp_report_line_item_map' . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_line_item_map' . rand(1, 10000);
     $createTablesql = "
     CREATE  $temporary TABLE $tempTable (
     `contid` INT(10) UNSIGNED NULL DEFAULT '0' COMMENT 'Contribution ID',
@@ -3404,7 +3404,7 @@ ON ({$this->_aliases['civicrm_event']}.id = {$this->_aliases['civicrm_participan
    */
   function joinContributionSummaryTableFromContact($prefix, $extra){
     $temporary = $this->_temporary;
-    $tempTable = 'civicrm_temp_contsumm'. $prefix . date('d_H_I') . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_contsumm'. $prefix . date('d_H_I') . rand(1, 10000);
     $dropSql = "DROP TABLE IF EXISTS $tempTable";
     $criteria = " is_test = 0 ";
     if(!empty($extra['criteria'])){
