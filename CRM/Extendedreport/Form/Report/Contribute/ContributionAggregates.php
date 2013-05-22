@@ -71,6 +71,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_reportingStartDate = NULL;
   protected $_comparisonType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
   protected $_barChartLegend = NULL;
+  protected $_chartXName = NULL;
   protected $_baseEntity = NULL;
   /**
    * These are the labels for the available statuses.
@@ -89,12 +90,6 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @var array statuses to include in report
    */
   protected $_statuses = array();
-
-  /**
-   * Instruction to add a % on a stacked bar chart
-   * @var boolean
-   */
-  protected $tagPercent = NULL;
 
   function buildChart(&$rows) {
     $graphData = array();
@@ -117,7 +112,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
     // build the chart.
     $config = CRM_Core_Config::Singleton();
-    $graphData['xname'] = ts('Base contribution period');
+    $graphData['xname'] = ts($this->_chartXName);
     $graphData['yname'] = ts("Number of Donors");
 
     $graphData['legend'] = ts($this->_barChartLegend);

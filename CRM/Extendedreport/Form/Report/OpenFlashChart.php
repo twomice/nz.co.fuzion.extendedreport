@@ -120,6 +120,11 @@ class chart {
   protected $chart = null;
   protected $chartElement = null;
   protected $onClickFunName = null;
+  /**
+   * Instruction to add a % on a stacked bar chart
+   * @var boolean
+   */
+  protected $tagPercent = FALSE;
 
   function __construct($params) {
     $chart = NULL;

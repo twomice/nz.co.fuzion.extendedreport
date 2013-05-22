@@ -38,6 +38,7 @@ class CRM_Extendedreport_Form_Report_Contribute_New extends CRM_Extendedreport_F
   protected $_noFields = TRUE;
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
   protected $_comparisonType = 'none';
+  protected $_chartXName = 'Time Period';
 
   protected $_charts = array(
     '' => 'Tabular',

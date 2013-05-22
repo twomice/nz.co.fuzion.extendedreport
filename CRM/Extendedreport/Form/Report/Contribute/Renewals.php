@@ -38,6 +38,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Renewals extends CRM_Extendedrep
   protected $_noFields = TRUE;
   protected $_comparisonType = 'prior';
   protected $_preConstrain = TRUE; // generate a temp table of contacts that meet criteria & then build temp tables
+  protected $_chartXName = 'Base contribution period';
 
   protected $_charts = array(
     '' => 'Tabular',
