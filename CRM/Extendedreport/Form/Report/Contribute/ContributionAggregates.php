@@ -90,7 +90,31 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @var array statuses to include in report
    */
   protected $_statuses = array();
-
+/**
+ * This is here as a way to determine what to potentially put in the url links as filters
+ * There is probably a better way...
+ * @var unknown_type
+ */
+  protected $_potentialCriteria = array(
+    'financial_type_id_value',
+    'financial_type_id_op',
+    'contribution_type_id_value',
+    'contribution_type_id_op',
+    'payment_instrument_id_op',
+    'payment_instrument_id_value',
+    'contribution_status_id_value',
+    'contribution_status_id_op',
+    'contribution_is_test_op',
+    'contribution_is_test_value',
+    'total_amount_min',
+    'total_amount_max',
+    'total_amount_op',
+    'total_amount_value',
+    'tagid_op',
+    'tagid_value',
+    'gid_op',
+    'gid_value',
+  );
   function buildChart(&$rows) {
     $graphData = array();
     foreach ($this->_statuses as $status){
@@ -149,28 +173,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
 
   function alterDisplay(&$rows){
-    $potentialCriteria = array(
-      'financial_type_id_value',
-      'financial_type_id_op',
-      'contribution_type_id_value',
-      'contribution_type_id_op',
-      'payment_instrument_id_op',
-      'payment_instrument_id_value',
-      'contribution_status_id_value',
-      'contribution_status_id_op',
-      'contribution_is_test_op',
-      'contribution_is_test_value',
-      'total_amount_min',
-      'total_amount_max',
-      'total_amount_op',
-      'total_amount_value',
-      'tagid_op',
-      'tagid_value',
-      'gid_op',
-      'gid_value',
-      );
     $queryURL = "reset=1&force=1";
-    foreach ($potentialCriteria as $criterion){
+    foreach ($this->_potentialCriteria as $criterion){
       if(empty($this->_params[$criterion])){
         continue;
       }
@@ -398,7 +402,15 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       $this->_reportingStartDate = date('Y-m-d', strtotime("-  $startOffset  $startOffsetUnit ", strtotime($this->_params['receive_date_value'])));
     }
   }
-
+  /**
+   * constrainedWhere applies to Where clauses applied AFTER the
+   * 'pre-constrained' report universe is created.
+   *
+   * For example the universe might be limited to a group of contacts in the first round
+   * in the second round this Where clause is applied
+   * (non-PHPdoc)
+   * @see CRM_Extendedreport_Form_Report_ExtendedReport::constrainedWhere()
+   */
   function constrainedWhere(){
     if(empty($this->constrainedWhereClauses)){
       $this->_where = "WHERE ( 1 ) ";
@@ -689,6 +701,37 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     )
     ";
   }
+
+  /**
+   * Get Clause for increased Donors
+   *
+   * @param string $rangeName
+   * @param array $rangeSpecs
+   * @return string clause for increased donor
+   */
+  function getIncreasedClause($rangeName, $rangeSpecs){
+    return "
+    IF (
+    {$rangeName}_amount > 0 AND {$rangeName}_amount > {$rangeName}_catch_amount , 1,  0
+    )
+    ";
+  }
+
+  /**
+   * Get Clause for increased Donors
+   *
+   * @param string $rangeName
+   * @param array $rangeSpecs
+   * @return string clause for increased donor
+   */
+  function getDecreasedClause($rangeName, $rangeSpecs){
+    return "
+    IF (
+    {$rangeName}_amount < 0 AND {$rangeName}_amount < {$rangeName}_catch_amount , 1,  0
+    )
+    ";
+  }
+
   /**
    * (non-PHPdoc)
    * @see CRM_Extendedreport_Form_Report_ExtendedReport::getAvailableJoins()

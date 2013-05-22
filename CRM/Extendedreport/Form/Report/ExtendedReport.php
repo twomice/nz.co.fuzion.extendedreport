@@ -209,8 +209,15 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     }
     $this->selectableCustomDataFrom();
   }
-  function constrainedWhere(){
 
+  /**
+   *  constrainedWhere applies to Where clauses applied AFTER the
+   * 'pre-constrained' report universe is created.
+   *
+   * For example the universe might be limited to a group of contacts in the first round
+   * in the second round this Where clause is applied
+   */
+  function constrainedWhere(){
   }
   /*
    * Override exists purely to handle unusual date fields by passing field metadata to date clause
@@ -756,7 +763,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
 
 /**
  * Over-written to allow pre-constraints
- * @param unknown_type $applyLimit
+ * @param boolean $applyLimit
  * @return string
  */
 
@@ -792,7 +799,12 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     $sql = "{$this->_select} {$this->_from} {$this->_where} {$this->_groupBy} {$this->_having} {$this->_orderBy} {$this->_limit}";
     return $sql;
   }
-
+/**
+ * Generate a temp table to reflect the pre-constrained report group
+ * This could be a group of contacts on whom we are going to do a series of contribution
+ * comparisons. We create a temp table of their ids in the first instance
+ * and use this as the base
+ */
   function generateTempTable(){
     $tempTable = 'civicrm_report_temp_' . $this->_baseTable . rand(1, 10000);
     $sql = "CREATE {$this->_temporary} TABLE $tempTable
