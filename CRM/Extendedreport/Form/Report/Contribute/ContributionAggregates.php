@@ -62,6 +62,7 @@
  *    3) comparison is prior - in this case the comparison is a prior range but does not go back as far as
  *    the report universe unless it co-incides with it. This is used for the renewals report
  *
+ *   4) comparison is 'none - there is no comparison range (e.g. for 'first')
  */
 class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends CRM_Extendedreport_Form_Report_ExtendedReport {
   CONST OP_SINGLEDATE = 3;
@@ -81,6 +82,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     'prior' => 'All lapsed',
     'recovered' => 'Recovered',
     'new' => 'New',
+    'first' => 'First',
     );
   /**
    *
@@ -88,6 +90,11 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    */
   protected $_statuses = array();
 
+  /**
+   * Instruction to add a % on a stacked bar chart
+   * @var boolean
+   */
+  protected $tagPercent = NULL;
 
   function buildChart(&$rows) {
     $graphData = array();
@@ -181,13 +188,17 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     foreach ($rows as $index => &$row){
       foreach ($this->_statuses as $status){
         if(array_key_exists($status, $row)){
+          if(isset($this->_ranges['interval_' . $index]['comparison_from_date'])){
+            $queryURL .="&comparison_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_from_date']));
+          }
+          if(isset($this->_ranges['interval_' . $index]['comparison_to_date'])){
+            $queryURL .="&comparison_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_to_date']));
+          }
           $statusUrl = CRM_Report_Utils_Report::getNextUrl(
           'contribute/aggregatedetails',
           $queryURL
           . "&receive_date_from=" . date('Ymd', strtotime($row['from_date']))
           . "&receive_date_to=" . date('Ymd', strtotime($row['to_date']))
-          . "&comparison_date_from=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_from_date']))
-          . "&comparison_date_to=". date('Ymd', strtotime($this->_ranges['interval_' . $index]['comparison_to_date']))
           . "&behaviour_type_value={$status}",
           $this->_absoluteUrl,
           NULL,
@@ -236,6 +247,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       }
       if($this->_comparisonType == 'allprior' || $this->_comparisonType == 'prior'){
         $this->constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
+      }
+      else{
+        $this->constructSingleRange($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
     }
     return $this->_ranges;
@@ -290,6 +304,29 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'comparison_to_date' => $rangeComparisonEnd
     );
   }
+
+  /**
+   *
+   * @param integer $i
+   * @param string $startDate
+   * @param integer $no_periods
+   * @param string $offset_unit
+   * @param integer $offset
+   * @param string $comparison_offset
+   * @param integer $comparison_offset_unit
+   */
+  function constructSingleRange($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit){
+    $rangestart = date('Y-m-d', strtotime('+ ' . ($i * $offset) . " $offset_unit ", strtotime($startDate)));
+    $rangeEnd = date('Y-m-d', strtotime(" +  $offset  $offset_unit", strtotime('- 1 day', strtotime($rangestart))));
+    if($this->_reportingStartDate && $this->_comparisonType == 'allprior'){
+      $rangeComparisonStart = $this->_reportingStartDate;
+    }
+    $this->_ranges['interval_' . $i] = array(
+      'from_date' => $rangestart,
+      'to_date' => $rangeEnd,
+    );
+  }
+
   /*
     *      )
   *  but they are constructed in the construct fn -
@@ -442,12 +479,15 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       $specs['between'] = "
       BETWEEN '{$specs['from_date']}'
       AND '{$specs['to_date']} 23:59:59'";
-      $specs['comparison_between'] = "
-        BETWEEN '{$specs['comparison_from_date']}'
-          AND '{$specs['comparison_to_date']} 23:59:59'";
-      $betweenClauses[] = " {$specs['between']}";
-      $betweenClauses[] = " {$specs['comparison_between']}";
 
+      if(isset($specs['comparison_from_date'])){
+        $specs['comparison_between'] = "
+          BETWEEN '{$specs['comparison_from_date']}'
+          AND '{$specs['comparison_to_date']} 23:59:59'";
+
+        $betweenClauses[] = " {$specs['comparison_between']}";
+      }
+      $betweenClauses[] = " {$specs['between']}";
       $columnStr .= "  {$alias}_amount FLOAT NOT NULL default 0, {$alias}_no FLOAT NOT NULL default 0, ";
       $columnStr .= "  {$alias}_catch_amount FLOAT NOT NULL default 0, {$alias}_catch_no FLOAT NOT NULL default 0, ";
       foreach ($this->_statuses as $status){
@@ -520,8 +560,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   {$rangeName}_no = no_cont
                   WHERE t.cid = contact_id
                   ";
-
-      $inserts[] = " UPDATE $tempTable t,
+      if(isset($rangeSpecs['comparison_from_date'])){
+        // if we are only looking at 'new' then there might not be a comparison period
+        $inserts[] = " UPDATE $tempTable t,
                   (  SELECT contact_id,
                       sum({$this->_aliases['civicrm_contribution']}.total_amount) as total_amount,
                       count({$this->_aliases['civicrm_contribution']}.id) as no_cont
@@ -536,6 +577,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
                   {$rangeName}_catch_no = no_cont
                   WHERE t.cid = contact_id
                   ";
+      }
       foreach ($this->_statuses as $status){
         $statusClauses[] = "
            {$rangeName}_{$status} = " . $this->getStatusClause($status, $rangeName, $rangeSpecs);
@@ -644,6 +686,14 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     )
     ";
   }
+
+  function getFirstClause($rangeName, $rangeSpecs){
+    return "
+    IF (
+    first_receive_date {$rangeSpecs['between']}, 1,  0
+    )
+    ";
+  }
   /**
    * (non-PHPdoc)
    * @see CRM_Extendedreport_Form_Report_ExtendedReport::getAvailableJoins()
@@ -663,6 +713,31 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @param unknown_type $vars
    */
   function getVarsFromParams(&$vars) {
+  }
+
+  /**
+   * Get last date of last quarter
+   */
+  function getLastDayOfQuarter(){
+    $month = date('m') -1;
+    switch ($month){
+      case 1:
+      case 2:
+      case 3:
+        return(date('Y-12-31'));
+      case 4:
+      case 5:
+      case 6:
+        return(date('Y-03-31'));
+      case 7:
+      case 8:
+      case 9:
+        return(date('Y-06-30'));
+      case 10:
+      case 0:
+      case 11:
+        return(date('Y-09-30'));
+    }
   }
 }
 
