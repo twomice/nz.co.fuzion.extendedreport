@@ -46,7 +46,7 @@ return array (
       'version' => 3,
       'label' => 'Key Numbers Report',
       'description' => 'Report displays Key performance Indicators',
-      'class_name' => 'CRM_Extendedreport_Form_Report_Contribute_Key Numbers Report',
+      'class_name' => 'CRM_Extendedreport_Form_Report_Contribute_KeyNumbers',
       'report_url' => 'contribute/keynumbers',
       'component' => 'CiviContribute',
     ),
