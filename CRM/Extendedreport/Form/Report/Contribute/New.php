@@ -43,8 +43,7 @@ class CRM_Extendedreport_Form_Report_Contribute_New extends CRM_Extendedreport_F
   protected $_charts = array(
     '' => 'Tabular',
     'barChart' => 'Bar Chart',
-    'multiplePieChart' => 'Pie Chart',
-  );
+   );
 
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
