@@ -73,6 +73,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_barChartLegend = NULL;
   protected $_chartXName = NULL;
   protected $_baseEntity = NULL;
+  protected $_tempTables = array();
   /**
    * These are the labels for the available statuses.
    * Reports can over-ride them
@@ -84,12 +85,19 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     'recovered' => 'Recovered',
     'new' => 'New',
     'first' => 'First',
+    'every' => 'All Donations in period', // I wanted to use 'all' but it's a mysql key word
     );
   /**
    *
    * @var array statuses to include in report
    */
   protected $_statuses = array();
+  /**
+   *
+   * @var array aggregates to calculate for the report
+   * So far only 'every' is supported
+   */
+  protected $_aggregates = array();
 /**
  * This is here as a way to determine what to potentially put in the url links as filters
  * There is probably a better way...
@@ -211,12 +219,31 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   }
 
   /**
-   * Convert descriptor into a series of ranges. Note that the $extra array
+   * Convert descriptor into a series of ranges.
+   *
+   * Note that the $extra array
    * may denote parameters or values (this allows us to easily flick between
    * allowing things like the offset_unit or no_periods to be hard-coded in the report or an
    * option
    *
    * @param array $extra
+   *
+   *  - 'cutoff_date' end date of primary period. A date or a field name - e.g. 'receive_date_to' = use $this->_params['receive_date_to']
+   *  - primary_from_date last from & last to are an alternative to a single cut-off date
+   *  - primary_to_date - they describe the main range of the primary reporting period
+   *                      (the base of the other periods).
+   *                      primary_to_date is effectively a pseudonym for cutoff_date for 'prior'
+   *                      ranges
+   *  - 'offset' => 1 - number of units to go forwards or backwards to establish start of
+   *                  main period compared to start of previous main period (e.g are we looking
+   *                  at periods one year apart)
+   *  - 'offset_unit' e.g 'year', -
+   *  - 'comparison_offset' => 18,
+   *  - 'comparison_offset_unit' => 'month',
+   *  - 'no_periods' => 4,
+   *  - 'start_offset' => 60 - this is for defining the reporting period start date (so a 'new' donor gave since the
+   *                           reporting period started.
+   *  - 'start_offset_unit' => 'month'
    */
   function constructRanges($extra) {
     $vars = array(
@@ -228,6 +255,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'comparison_offset_unit',
       'start_offset',
       'start_offset_unit',
+      'primary_from_date',
+      'primary_to_date',
     );
     foreach ($vars as $var) {
       if (isset($extra[$var]) && !empty($this->_params[$extra[$var]])) {
@@ -237,16 +266,27 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
         $$var = empty($extra[$var]) ? NULL : $extra[$var];
       }
     }
-    // start of our period is the cutoff date - the sum of all our periods + one day (as ranges expected to run 01 Jan to 31 Dec etc)
-    $startDate = date('Y-m-d', strtotime("- " . ($no_periods * $offset) . " $offset_unit ", strtotime('+ 1 day', strtotime($cutoff_date))));
+    if(!empty($primary_from_date)){
+      //we have been given a specific range of dates rather than a cutoff-date
+      // so we will calc our start date as start date of final period less the no_periods * offset
+      $startDate = date('Y-m-d', strtotime("- " . (($no_periods-1) * $offset) . " $offset_unit ", strtotime($primary_from_date)));
+    }
+    else{
+      // start of our period is the cutoff date - the sum of all our periods + one day (as ranges expected to run 01 Jan to 31 Dec etc)
+      $startDate = date('Y-m-d', strtotime("- " . ($no_periods * $offset) . " $offset_unit ", strtotime('+ 1 day', strtotime($cutoff_date))));
+    }
     $this->_ranges = array();
     for($i = 0; $i < $no_periods; $i ++) {
       if($this->_comparisonType  == 'future'){
         $this->constructFutureRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
-      if($this->_comparisonType == 'allprior' || $this->_comparisonType == 'prior'){
+      elseif($primary_from_date && $primary_to_date){
+        $this->constructPriorDefinedRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit, $primary_from_date, $primary_to_date);
+      }
+      elseif($this->_comparisonType == 'allprior' || $this->_comparisonType == 'prior'){
         $this->constructPriorRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
+
       else{
         $this->constructSingleRange($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit);
       }
@@ -296,6 +336,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     if($this->_reportingStartDate && $this->_comparisonType == 'allprior'){
       $rangeComparisonStart = $this->_reportingStartDate;
     }
+
     $this->_ranges['interval_' . $i] = array(
       'from_date' => $rangestart,
       'to_date' => $rangeEnd,
@@ -303,7 +344,33 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       'comparison_to_date' => $rangeComparisonEnd
     );
   }
-
+  /**
+   * Here we are constructing a set of Year to Date ranges
+   * ie we want to compare '01 jan 2012 to 22 May 2012' with '01 Jan 2011 to 22 May 2011'
+   * @param integer $i
+   * @param string $startDate
+   * @param integer $no_periods
+   * @param string $offset_unit
+   * @param integer $offset
+   * @param string $comparison_offset
+   * @param integer $comparison_offset_unit
+   */
+  function constructPriorDefinedRanges($i, $startDate, $no_periods, $offset_unit, $offset,  $comparison_offset, $comparison_offset_unit, $start_offset, $start_offset_unit, $primary_from_date, $primary_to_date){
+    // the start date we are given tells use the m & d of the end date for each ytd span
+    // but we need to reset the start date to be the 1st day of the following year
+    $rangeStart = date('Y-m-d', strtotime('- ' . ($i * $offset) . " $offset_unit ", strtotime($primary_from_date)));
+    $rangeEnd = date('Y-m-d', strtotime('- ' . ($i * $offset) . " $offset_unit ", strtotime($primary_to_date)));
+    // in the normal prior we assume that the comparison ends the day before the main range starts.
+    // in this case we will assume it is offset from the main range end by the comparison offset
+    $rangeComparisonEnd = date('Y-m-d',  strtotime('- ' . ($comparison_offset) . " $comparison_offset_unit ", strtotime($rangeEnd)));
+    $rangeComparisonStart = date('Y-m-d',  strtotime('- ' . ( $comparison_offset) . " $comparison_offset_unit ", strtotime($rangeStart)));
+        $this->_ranges['interval_' . $i] = array(
+      'from_date' => $rangeStart,
+      'to_date' => $rangeEnd,
+      'comparison_from_date' => $rangeComparisonStart,
+      'comparison_to_date' => $rangeComparisonEnd
+    );
+  }
   /**
    *
    * @param integer $i
@@ -330,19 +397,6 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     *      )
   *  but they are constructed in the construct fn -
   *  @todo we should move table construction to separate fn
-  *   - OR an end date + an offset + a number of periods - in which case it
-  *   will be constructed into the above
-  *
-  *   e.g
-  *   array(
-    *    'cutoff_date' => 'receive_date_to'
-    *    'offset_unit' => 'year',
-    *    'offset' => 1,
-    *    'comparison_offset' => 18,
-    *    'comparison_offset_unit' => 'month',
-    *    'no_periods' => 4,
-    *    'start_offset' = > 60
-    *    'start_offset_unit' => 'month'
     *
     *
     */
@@ -365,10 +419,12 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     unset($this->_params['receive_date_from']);
     unset($this->_params['receive_date_to']);
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
-    $tempTable = $this->constructComparisonTable();
-
+    $columnStr = NULL;
+    $tempTable = $this->constructComparisonTable(CRM_Utils_Array::value('extra_fields', $extra));
+    $this->_tempTables['civicrm_contribution_multi'] = $tempTable;
     //@todo hack differentiating summary based on contact & contribution report
-    // do something better
+    // do something better -
+    // Follow up note - I may no longer be doing any based on 'contribution'
     if($this->_baseEntity == 'contribution'){
       if(empty($this->aliases['civicrm_contribution'])){
         $this->aliases['civicrm_contribution'] = 'contribution_civireport';
@@ -463,7 +519,14 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
   /**
   * Build array of contributions against contact
-  *  Ideally this function works from the following params
+  *
+  * @param array $extraColumns Extra columns to add to comparison table
+  * so far only used to add contact_type
+  *  array('contact_type' => 'contact_type VARCHAR(50) NULL,')
+  * Note that at the moment the column has to be in contact or contribution table
+  * and be unique (as no prefixing)
+  *
+  *  $this->_ranges needs to hold ranges like
   *
   *    'date_ranges' => array(
   *      'first_date_range' => array(
@@ -504,6 +567,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
 
     $temporary = $this->_temporary;
     $tempTable = 'civicrm_report_temp_conts' . date('d_H_I') . rand(1, 10000);
+
     CRM_Core_DAO::executeQuery("DROP TABLE IF EXISTS $tempTable");
     $createTablesql = "
                   CREATE  $temporary TABLE $tempTable (
@@ -528,18 +592,18 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     }
 
     $insertContributionRecordsSql = "
-                  INSERT INTO $tempTable (cid, first_receive_date, total_amount)
-                  SELECT {$this->_aliases[$this->_baseTable]}.id ,
-                  min(receive_date), sum(total_amount)
-                  FROM {$this->_baseTable} {$this->_aliases[$this->_baseTable]}
-                  INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
-                  ON {$this->_aliases[$this->_baseTable]}.id =  {$this->_aliases['civicrm_contribution']}.contact_id
-                  WHERE  {$this->_aliases['civicrm_contribution']}.contribution_status_id = 1
-                  AND {$this->_aliases['civicrm_contribution']}.is_test = 0
-                  $receiveClause
-                  $contributionClause
-                  GROUP BY {$this->_aliases[$this->_baseTable]}.id
-                  ";
+      INSERT INTO $tempTable (cid, first_receive_date, total_amount)
+      SELECT {$this->_aliases[$this->_baseTable]}.id ,
+        min(receive_date), sum(total_amount)
+      FROM {$this->_baseTable} {$this->_aliases[$this->_baseTable]}
+      INNER JOIN civicrm_contribution {$this->_aliases['civicrm_contribution']}
+        ON {$this->_aliases[$this->_baseTable]}.id =  {$this->_aliases['civicrm_contribution']}.contact_id
+      WHERE  {$this->_aliases['civicrm_contribution']}.contribution_status_id = 1
+        AND {$this->_aliases['civicrm_contribution']}.is_test = 0
+          $receiveClause
+          $contributionClause
+      GROUP BY {$this->_aliases[$this->_baseTable]}.id
+      ";
     /*
                   * Note we are stashing total amount & count since it seems like it opens up other options. However, it's not strictly in the requirement
                   * so if we have performance issues with the subquery using IS NOT NULL may be quicker
@@ -619,6 +683,15 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
           {$rangeName}_{$status}
         ) AS {$status} ";
       }
+      foreach ($this->_aggregates as $aggregate){
+        $sql .= " , SUM(
+        {$rangeName}_amount
+        ) AS {$status}_total
+          , SUM(
+        {$rangeName}_catch_amount
+        ) AS comparison_{$status}_total "
+        ;
+      }
 
       $summarySQL[] = $sql . " FROM {$tempTable}";
     }
@@ -685,7 +758,13 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       )
     ";
   }
-
+/**
+ * Get donors who gave in main period but not in catchment perioed
+ *
+ * @param string $rangeName
+ * @param array $rangeFromDate
+ * @return string  Clause
+ */
   function getNewClause($rangeName, $rangeFromDate){
     return "
     IF (
@@ -693,12 +772,31 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     )
     ";
   }
-
-  function getFirstClause($rangeName, $rangeSpecs){
+/**
+ * Get number of donors who gave in the main period
+ *
+ * @param string $rangeName
+ * @param array $rangeFromDate
+ * @return string  Clause
+ */
+  function getEveryClause($rangeName, $rangeSpecs){
     return "
     IF (
-    first_receive_date {$rangeSpecs['between']}, 1,  0
+      {$rangeName}_amount > 0, 1,  0
     )
+    ";
+  }
+
+  /**
+   * Get number of donors who gave in the main period
+   *
+   * @param string $rangeName
+   * @param array $rangeFromDate
+   * @return string  Clause
+   */
+  function getTotalClause($rangeName, $rangeSpecs){
+    return "
+    {$rangeName}_amount
     ";
   }
 

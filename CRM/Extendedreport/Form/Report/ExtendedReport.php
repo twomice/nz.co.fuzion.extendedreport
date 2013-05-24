@@ -73,9 +73,144 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
       $this->financialTypePseudoConstant = 'contributionType';
     }
   }
+
+  /**
+   * Backported purely to provide CRM-12687 which is in 4.4
+   */
   function preProcess() {
-    parent::preProcess();
+    $this->preProcessCommon();
+
+    if (!$this->_id) {
+      $this->addBreadCrumb();
+    }
+
+    foreach ($this->_columns as $tableName => $table) {
+      // set alias
+      if (!isset($table['alias'])) {
+        $this->_columns[$tableName]['alias'] = substr($tableName, 8) . '_civireport';
+      }
+      else {
+        $this->_columns[$tableName]['alias'] = $table['alias'] . '_civireport';
+      }
+
+      $this->_aliases[$tableName] = $this->_columns[$tableName]['alias'];
+
+      // higher preference to bao object
+      if (array_key_exists('bao', $table)) {
+        require_once str_replace('_', DIRECTORY_SEPARATOR, $table['bao'] . '.php');
+        eval("\$expFields = {$table['bao']}::exportableFields( );");
+      }
+      elseif (array_key_exists('dao', $table)){
+        require_once str_replace('_', DIRECTORY_SEPARATOR, $table['dao'] . '.php');
+        eval("\$expFields = {$table['dao']}::export( );");
+      }
+      else{
+        $expFields = array();
+      }
+
+      $doNotCopy = array('required');
+
+      $fieldGroups = array('fields', 'filters', 'group_bys', 'order_bys');
+      foreach ($fieldGroups as $fieldGrp) {
+        if (CRM_Utils_Array::value($fieldGrp, $table) && is_array($table[$fieldGrp])) {
+          foreach ($table[$fieldGrp] as $fieldName => $field) {
+            // $name is the field name used to reference the BAO/DAO export fields array
+            $name = isset($field['name']) ? $field['name'] : $fieldName;
+
+            // Sometimes the field name key in the BAO/DAO export fields array is
+            // different from the actual database field name.
+            // Unset $field['name'] so that actual database field name can be obtained
+            // from the BAO/DAO export fields array.
+            unset($field['name']);
+
+            if (array_key_exists($name, $expFields)) {
+              foreach ($doNotCopy as $dnc) {
+                // unset the values we don't want to be copied.
+                unset($expFields[$name][$dnc]);
+              }
+              if (empty($field)) {
+                $this->_columns[$tableName][$fieldGrp][$fieldName] = $expFields[$name];
+              }
+              else {
+                foreach ($expFields[$name] as $property => $val) {
+                  if (!array_key_exists($property, $field)) {
+                    $this->_columns[$tableName][$fieldGrp][$fieldName][$property] = $val;
+                  }
+                }
+              }
+            }
+
+            // fill other vars
+            if (CRM_Utils_Array::value('no_repeat', $field)) {
+              $this->_noRepeats[] = "{$tableName}_{$fieldName}";
+            }
+            if (CRM_Utils_Array::value('no_display', $field)) {
+              $this->_noDisplay[] = "{$tableName}_{$fieldName}";
+            }
+
+            // set alias = table-name, unless already set
+            $alias = isset($field['alias']) ? $field['alias'] : (isset($this->_columns[$tableName]['alias']) ?
+                     $this->_columns[$tableName]['alias'] : $tableName
+            );
+            $this->_columns[$tableName][$fieldGrp][$fieldName]['alias'] = $alias;
+
+            // set name = fieldName, unless already set
+            if (!isset($this->_columns[$tableName][$fieldGrp][$fieldName]['name'])) {
+              $this->_columns[$tableName][$fieldGrp][$fieldName]['name'] = $name;
+            }
+
+            // set dbAlias = alias.name, unless already set
+            if (!isset($this->_columns[$tableName][$fieldGrp][$fieldName]['dbAlias'])) {
+              $this->_columns[$tableName][$fieldGrp][$fieldName]['dbAlias'] = $alias . '.' . $this->_columns[$tableName][$fieldGrp][$fieldName]['name'];
+            }
+
+            if (CRM_Utils_Array::value('type', $this->_columns[$tableName][$fieldGrp][$fieldName]) &&
+              !isset($this->_columns[$tableName][$fieldGrp][$fieldName]['operatorType'])
+            ) {
+              if (in_array($this->_columns[$tableName][$fieldGrp][$fieldName]['type'],
+                  array(CRM_Utils_Type::T_MONEY, CRM_Utils_Type::T_FLOAT)
+                )) {
+                $this->_columns[$tableName][$fieldGrp][$fieldName]['operatorType'] = CRM_Report_Form::OP_FLOAT;
+              }
+              elseif (in_array($this->_columns[$tableName][$fieldGrp][$fieldName]['type'],
+                  array(CRM_Utils_Type::T_INT)
+                )) {
+                $this->_columns[$tableName][$fieldGrp][$fieldName]['operatorType'] = CRM_Report_Form::OP_INT;
+              }
+            }
+          }
+        }
+      }
+
+      // copy filters to a separate handy variable
+      if (array_key_exists('filters', $table)) {
+        $this->_filters[$tableName] = $this->_columns[$tableName]['filters'];
+      }
+
+      if (array_key_exists('group_bys', $table)) {
+        $groupBys[$tableName] = $this->_columns[$tableName]['group_bys'];
+      }
+
+      if (array_key_exists('fields', $table)) {
+        $reportFields[$tableName] = $this->_columns[$tableName]['fields'];
+      }
+    }
+
+    if ($this->_force) {
+      $this->setDefaultValues(FALSE);
+    }
+
+    CRM_Report_Utils_Get::processFilter($this->_filters, $this->_defaults);
+    CRM_Report_Utils_Get::processGroupBy($groupBys, $this->_defaults);
+    CRM_Report_Utils_Get::processFields($reportFields, $this->_defaults);
+    CRM_Report_Utils_Get::processChart($this->_defaults);
+
+    if ($this->_force) {
+      $this->_formValues = $this->_defaults;
+      $this->postProcess();
+    }
   }
+
 
   function select() {
     if($this->_preConstrain && !$this->_preConstrained){
@@ -479,10 +614,14 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     }
     $this->assign('filters', $filters);
   }
-
+/**
+ * We have over-riden this to provide the option of setting single date fields with defaults
+ * and the option of setting 'to', 'from' defaults on date fields
+ * @param boolean $freeze
+ * @return Ambigous <string, multitype:, unknown>
+ */
   function setDefaultValues($freeze = TRUE) {
     $freezeGroup = array();
-
     // FIXME: generalizing form field naming conventions would reduce
     // lots of lines below.
     foreach ($this->_columns as $tableName => $table) {
@@ -496,9 +635,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
               if ($freeze) {
                 // find element object, so that we could use quickform's freeze method
                 // for required elements
-                $obj = $this->getElementFromGroup("fields",
-                  $fieldName
-                );
+                $obj = $this->getElementFromGroup("fields", $fieldName);
                 if ($obj) {
                   $freezeGroup[] = $obj;
                 }
@@ -526,7 +663,14 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
           if (isset($field['default'])) {
             if (CRM_Utils_Array::value('type', $field) & CRM_Utils_Type::T_DATE
                && !(CRM_Utils_Array::value('operatorType', $field) == self::OP_SINGLEDATE)) {
-              $this->_defaults["{$fieldName}_relative"] = $field['default'];
+              if(is_array($field['default'])){
+                $this->_defaults["{$fieldName}_from"] = CRM_Utils_Array::value('from', $field['default']);
+                $this->_defaults["{$fieldName}_to"] = CRM_Utils_Array::value('to', $field['default']);
+                $this->_defaults["{$fieldName}_relative"] = 0;
+              }
+              else{
+                $this->_defaults["{$fieldName}_relative"] = $field['default'];
+              }
             }
             else {
               $this->_defaults["{$fieldName}_value"] = $field['default'];
@@ -546,16 +690,16 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
         }
       }
 
-      if (array_key_exists('order_bys', $table) &&
+      if (
+        array_key_exists('order_bys', $table) &&
         is_array($table['order_bys'])
       ) {
-
         if (!array_key_exists('order_bys', $this->_defaults)) {
-
           $this->_defaults['order_bys'] = array();
         }
         foreach ($table['order_bys'] as $fieldName => $field) {
-          if (CRM_Utils_Array::value('default', $field) ||
+          if (
+            CRM_Utils_Array::value('default', $field) ||
             CRM_Utils_Array::value('default_order', $field) ||
             CRM_Utils_Array::value('default_is_section', $field) ||
             CRM_Utils_Array::value('default_weight', $field)
@@ -802,7 +946,11 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
 /**
  * Generate a temp table to reflect the pre-constrained report group
  * This could be a group of contacts on whom we are going to do a series of contribution
- * comparisons. We create a temp table of their ids in the first instance
+ * comparisons.
+ *
+ * We apply where criteria from the form to generate this
+ *
+ * We create a temp table of their ids in the first instance
  * and use this as the base
  */
   function generateTempTable(){
@@ -819,6 +967,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     CRM_Core_DAO::executeQuery($sql);
     $this->_aliases[$tempTable] = $this->_aliases[$this->_baseTable];
     $this->_baseTable = $tempTable;
+    $this->_tempTables['base'] = $tempTable;
   }
 
 
@@ -2269,7 +2418,13 @@ WHERE cg.extends IN ('" . implode("','", $extends) . "') AND
             'title' => ts($options['prefix_label'] . 'Contact Name'),
             'name' => 'sort_name',
           ),
-        );
+          $options['prefix'] . 'contact_type' => array(
+           'title' => ts($options['prefix_label'] . 'Contact Type'),
+           'name' => 'contact_type',
+           'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+           'options' => CRM_Contribute_PseudoConstant::contactType(),
+          ),
+      );
     }
 
     if(!empty($options['order_by'])){
