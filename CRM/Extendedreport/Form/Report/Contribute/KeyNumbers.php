@@ -47,22 +47,26 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     'donor_number' => array(
       'type' => CRM_Utils_Type::T_INT,
       'title' => 'Total Number of Donors',
-      'contact_type_title' => 'Total Number of %1 Donors'
+      'contact_type_title' => 'Total Number of %1 Donors',
+      'link_status' => 'every',
     ),
     'total_amount' => array(
       'type' => CRM_Utils_Type::T_MONEY,
       'title' => 'Amount Raised',
-      'contact_type_title' => 'Amount Raised From %1s'
+      'contact_type_title' => 'Amount Raised From %1s',
+      'link_status' => 'every',
     ),
     'average_donation' => array(
       'type' => CRM_Utils_Type::T_MONEY,
       'title' => 'Average Donation',
-      'contact_type_title' => 'Average Donation From %1s'
+      'contact_type_title' => 'Average Donation From %1s',
+      'link_status' => 'every',
     ),
     'no_increased_donations' => array(
-      'type' => CRM_Utils_Type::T_MONEY,
+      'type' => CRM_Utils_Type::T_INT,
       'title' => 'Donors who Increased their donation',
-      'contact_type_title' => '%1 Donors who Increased their donation'
+      'contact_type_title' => '%1 Donors who Increased their donation',
+      'link_status' => 'increased',
     ),
   );
   /*
@@ -94,7 +98,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
       $contactTypes =  CRM_Contribute_PseudoConstant::contactType();
       $this->_kpiDescriptors[$specKey] = ts($specs['title']);
       foreach ($contactTypes as $contactType => $contactTypeName){
-        $this->_kpiDescriptors[$specKey . '_' . strtolower($contactType)] =
+        $this->_kpiDescriptors[$specKey . '__' . strtolower($contactType)] =
           ts( $specs['contact_type_title'],
               array($contactType, 'String')
           );
@@ -110,13 +114,13 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
              'pseudofield' => TRUE,
              'operatorType' => CRM_Report_Form::OP_MULTISELECT,
              'options' => $this->_kpiDescriptors,
-             'title' => ts('Select the KPIS you want to display'),
+             'title' => ts('Selected Performance Indicators'),
              'default' => array(
                'donor_number',
                'total_amount',
-               'total_amount_individual',
-               'average_donation_individual',
-               'no_increased_donations_individual'
+               'total_amount__individual',
+               'average_donation__individual',
+               'no_increased_donations__individual'
                )
              ),
            )
@@ -169,14 +173,17 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
       //render out relative dates here
       $rels = explode('.', $this->_params['receive_date_relative']);
       $fromTo = (CRM_Utils_Date::relativeToAbsolute($rels[0], $rels[1]));
-      $this->_params['receive_date_from'] = $fromTo['from'];
-      $this->_params['receive_date_to'] = $fromTo['to'];
-   //   unset($this->_params['receive_date_relative']);
+      $this->_params['receive_date_from'] = $this->_params['receive_date_from_stash'] =  $fromTo['from'];
+      $this->_params['receive_date_to'] =  $fromTo['to'];
+     // unset($this->_params['receive_date_relative']);
     }
- //   $this->_reportingStartDate = date('Y-m-d', strtotime('last day of December this year'));
+    // receive date from & to get unset in parent class. I'm a bit scared to change that right
+    // now so will hack around it by stashing them for a bit
+    $this->_params['receive_date_from_stash']  = $this->_params['receive_date_from'];
+    $this->_params['receive_date_to_stash']  = $this->_params['receive_date_to'];
     $this->constructRanges(array(
-      'primary_from_date' => 'receive_date_from',//date('Y-01-01', strtotime('now')),
-      'primary_to_date' => 'receive_date_to',//date('Y-m-d', strtotime('now')),
+      'primary_from_date' => 'receive_date_from',
+      'primary_to_date' => 'receive_date_to',
       'offset_unit' => 'year',
       'offset' => 1,
       'comparison_offset' => '1',
@@ -186,6 +193,21 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     )
     );
   }
+  /**
+   * As per last function the ContributionAggregate class is unsetting 'receive_date_from, receive_date_to
+   * I think the introduction of 'pseudofield' may have made that obsolete but would need to test
+   * making a change (test all child reports) so for now lets just reset & call parent
+   *
+   * @param array $statistics
+   */
+  function filterStat(&$statistics) {
+    $this->_params['receive_date_from'] = $this->_params['receive_date_from_stash'];
+    $this->_params['receive_date_to'] = $this->_params['receive_date_to_stash'];
+    parent::filterStat($statistics);
+  }
+  /**
+   * Call the functions that compose our KPI results
+   */
   function compileKeyStats(){
     $tempTable = $this->generateSummaryTable();
     $this->calcDonorNumber();
@@ -197,12 +219,12 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     $this->_from = " FROM $tempTable";
     $this->stashValuesInTable($tempTable);
   }
-/*  function where(){
-    $this->_where = "WHERE YEAR(receive_date) > (YEAR(CURRENT_DATE) - 2)
-    AND is_test = 0 AND contribution_status_id = 1
-    AND {$this->_aliases[$this->_baseTable]}.is_deleted = 0
-    ";
-  }*/
+
+  /**
+   * Specify the fromClauses required in this report
+   * @return
+   *
+   */
   function fromClauses( ) {
     if($this->_preConstrained){
       return $this->constrainedFromClause();
@@ -315,8 +337,8 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     ";
     $result = CRM_Core_DAO::executeQuery($sql);
     while($result->fetch()){
-      $this->_kpis[$this->_currentYear]['total_amount_' . strtolower($result->contact_type)] = $result->this_year;
-      $this->_kpis[$this->_lastYear]['total_amount_' . strtolower($result->contact_type)] = $result->last_year;
+      $this->_kpis[$this->_currentYear]['total_amount__' . strtolower($result->contact_type)] = $result->this_year;
+      $this->_kpis[$this->_lastYear]['total_amount__' . strtolower($result->contact_type)] = $result->last_year;
     }
   }
 
@@ -336,8 +358,8 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     $result = CRM_Core_DAO::executeQuery($sql);
     while($result->fetch()){
       $contactType = strtolower($result->contact_type);
-      $this->_kpis[$this->_currentYear]['donor_number_' . $contactType] = $result->this_year;
-      $this->_kpis[$this->_lastYear]['donor_number_' . $contactType] = $result->last_year;
+      $this->_kpis[$this->_currentYear]['donor_number__' . $contactType] = $result->this_year;
+      $this->_kpis[$this->_lastYear]['donor_number__' . $contactType] = $result->last_year;
       $this->calcAverageValues($contactType);
     }
     $this->calcAverageValues();
@@ -348,7 +370,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
  */
   function calcAverageValues($contactType = ''){
     if(!empty($contactType)){
-      $contactType = '_' . $contactType;
+      $contactType = '__' . $contactType;
     }
     $years = array($this->_currentYear, $this->_lastYear);
     foreach($years as $year){
@@ -394,8 +416,8 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     ";
         $result = CRM_Core_DAO::executeQuery($sql);
         while($result->fetch()){
-        $this->_kpis[$this->_currentYear]['no_increased_donations_' . strtolower($result->contact_type)] = $result->this_year;
-        $this->_kpis[$this->_lastYear]['no_increased_donations_' . strtolower($result->contact_type)] = $result->last_year;
+        $this->_kpis[$this->_currentYear]['no_increased_donations__' . strtolower($result->contact_type)] = $result->this_year;
+        $this->_kpis[$this->_lastYear]['no_increased_donations__' . strtolower($result->contact_type)] = $result->last_year;
       }
     }
 
@@ -432,60 +454,52 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
    */
   function alterDisplay(&$rows){
     foreach ($rows as &$row){
-      $dollarFields = array('Amount Raised', 'Amount of Individual Donations');
-      if(array_search($row['description'], $dollarFields)){
-        $row['this_year'] = '$' . $row['this_year'];
-        $row['last_year'] = '$' . $row['last_year'];
+      $availableKpi = array_flip($this->_kpiDescriptors);
+      $kpiName = $availableKpi[$row['description']];
+      $kpiDetails = explode('__', $kpiName);
+      if($this->_kpiSpecs[$kpiDetails[0]]['type'] == CRM_Utils_Type::T_MONEY){
+        $row['this_year'] = CRM_Utils_Money::format($row['this_year']);
+        $row['last_year'] = CRM_Utils_Money::format($row['last_year']);
       }
-      if($row['description'])
       if($row['percent_change'] == 0){
         $row['percent_change'] = 'n/a';
       }
       else{
         $row['percent_change'] = $row['percent_change'] . '%';
       }
-      if($row['description'] =='Donors who Increased their donation'){
-        // this is copied & pasted from parent as unclear how to deal with the fact this is just a part
-        // of a row this time - not a column
-        $queryURL = "reset=1&force=1";
-        foreach ($this->_potentialCriteria as $criterion){
-          if(empty($this->_params[$criterion])){
-            continue;
-          }
-          $criterionValue = is_array($this->_params[$criterion]) ? implode(',', $this->_params[$criterion]) : $this->_params[$criterion];
-          $queryURL .= "&{$criterion}=" . $criterionValue;
+      // we are dealing with rows not columns so this differs from parent approach
+      $queryURL = "reset=1&force=1";
+      foreach ($this->_potentialCriteria as $criterion){
+        if(empty($this->_params[$criterion])){
+          continue;
         }
-        $queryURLlastYear ="&comparison_date_from=". date('YmdHis', strtotime($this->_ranges['interval_1']['comparison_from_date']))
-        . "&comparison_date_to=". date('YmdHis', strtotime($this->_ranges['interval_1']['comparison_to_date']))
-        . "&receive_date_from=" . date('YmdHis', strtotime($this->_ranges['interval_1']['from_date']))
-        . "&receive_date_to=" . date('YmdHis', strtotime($this->_ranges['interval_1']['to_date']));
+        $criterionValue = is_array($this->_params[$criterion]) ? implode(',', $this->_params[$criterion]) : $this->_params[$criterion];
+        $queryURL .= "&{$criterion}=" . $criterionValue;
+      }
+      if(!empty($kpiDetails[1])){
+        $queryURL .= "&contact_type_value=" . $kpiDetails[1];
+      }
+      $years = array(
+        0 => 'this_year',
+        1 => 'last_year',
+      );
+      foreach($years as $interval => $year){
+        $queryURLYear ="&comparison_date_from=". date('YmdHis', strtotime($this->_ranges['interval_' . $interval]['comparison_from_date']))
+        . "&comparison_date_to=". date('YmdHis', strtotime($this->_ranges['interval_' . $interval]['comparison_to_date']))
+        . "&receive_date_from=" . date('YmdHis', strtotime($this->_ranges['interval_' . $interval]['from_date']))
+        . "&receive_date_to=" . date('YmdHis', strtotime($this->_ranges['interval_' . $interval]['to_date']));
         ;
-        $lastYearUrl = CRM_Report_Utils_Report::getNextUrl(
+        $url = CRM_Report_Utils_Report::getNextUrl(
           'contribute/aggregatedetails',
           $queryURL
-          . "&behaviour_type_value=increased"
-          . $queryURLlastYear,
+          . "&behaviour_type_value=" . $this->_kpiSpecs[$kpiDetails[0]]['link_status']
+          . $queryURLYear,
           $this->_absoluteUrl,
           NULL,
           $this->_drilldownReport
         );
-        $row['last_year_link'] = $lastYearUrl;
-        $queryURLThisYear ="&comparison_date_from=". date('YmdHis', strtotime($this->_ranges['interval_0']['comparison_from_date']))
-        . "&comparison_date_to=". date('YmdHis', strtotime($this->_ranges['interval_0']['comparison_to_date']))
-        . "&receive_date_from=" . date('YmdHis', strtotime($this->_ranges['interval_0']['from_date']))
-        . "&receive_date_to=" . date('YmdHis', strtotime($this->_ranges['interval_0']['to_date']));
-        ;
-        $statusUrl = CRM_Report_Utils_Report::getNextUrl(
-          'contribute/aggregatedetails',
-           $queryURL
-           . "&behaviour_type_value=increased"
-           . $queryURLThisYear,
-            $this->_absoluteUrl,
-            NULL,
-            $this->_drilldownReport
-            );
-            $row['this_year_link'] = $statusUrl;
-        }
+        $row[$year .'_link'] = $url;
+      }
       }
     parent::alterDisplay($rows);
   }

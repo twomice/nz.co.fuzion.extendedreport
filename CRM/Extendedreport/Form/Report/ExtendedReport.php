@@ -839,7 +839,6 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
     // modifying column headers before using it to build result set i.e $rows.
     $rows = array();
     $this->buildRows($sql, $rows);
-
     // format result set.
     $this->formatDisplay($rows);
 

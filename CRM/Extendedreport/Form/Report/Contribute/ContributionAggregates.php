@@ -122,6 +122,8 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     'tagid_value',
     'gid_op',
     'gid_value',
+    'contact_type_value',
+    'contact_type_op',
   );
   function buildChart(&$rows) {
     $graphData = array();
@@ -407,7 +409,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       }
 
       //we are just going to add our where clause here
-      $this->_params['receive_date_to'] = $this->_params['receive_date_value'];
+      if(isset( $this->_params['receive_date_value'])){
+        $this->_params['receive_date_to'] = $this->_params['receive_date_value'];
+      }
       if (! empty($extra['start_offset'])) {
         $this->_params['receive_date_from'] = $this->_reportingStartDate;
       }
@@ -810,7 +814,7 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   function getIncreasedClause($rangeName, $rangeSpecs){
     return "
     IF (
-    {$rangeName}_amount > 0 AND {$rangeName}_amount > {$rangeName}_catch_amount , 1,  0
+    {$rangeName}_amount > 0 AND {$rangeName}_amount > {$rangeName}_catch_amount AND {$rangeName}_catch_amount > 0, 1,  0
     )
     ";
   }
