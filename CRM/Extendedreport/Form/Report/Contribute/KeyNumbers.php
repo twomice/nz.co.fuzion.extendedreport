@@ -42,33 +42,13 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
 
   protected $_kpiDescriptors = array(
   );
+  /*
+   * Array to store specifications of the available kpis. I was defining these here
+   * but I think that doesn't allow the string to be exposed as translatable
+   * for translators as you can't do a 'ts' in here
+   */
+  protected $_kpiSpecs = array();
 
-  protected $_kpiSpecs = array(
-    'donor_number' => array(
-      'type' => CRM_Utils_Type::T_INT,
-      'title' => 'Total Number of Donors',
-      'contact_type_title' => 'Total Number of %1 Donors',
-      'link_status' => 'every',
-    ),
-    'total_amount' => array(
-      'type' => CRM_Utils_Type::T_MONEY,
-      'title' => 'Amount Raised',
-      'contact_type_title' => 'Amount Raised From %1s',
-      'link_status' => 'every',
-    ),
-    'average_donation' => array(
-      'type' => CRM_Utils_Type::T_MONEY,
-      'title' => 'Average Donation',
-      'contact_type_title' => 'Average Donation From %1s',
-      'link_status' => 'every',
-    ),
-    'no_increased_donations' => array(
-      'type' => CRM_Utils_Type::T_INT,
-      'title' => 'Donors who Increased their donation',
-      'contact_type_title' => '%1 Donors who Increased their donation',
-      'link_status' => 'increased',
-    ),
-  );
   /*
    * we'll store these as a property so we only have to calculate once
    */
@@ -76,6 +56,12 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
   protected $_lastYear = NULL;
   protected $_yearBeforeLast = NULL;
   protected $_contributionWhere = '';
+  /*
+   * Place to store relationship between 'interval' & 'year'
+   * @todo it might be better to only use interval - keying by year was introduced
+   * before year flexibility was introduced)
+   */
+  protected $_years = array();
 
   protected $_charts = array(
   );
@@ -94,6 +80,61 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
   public $_drilldownReport = array('contribute/detail' => 'Link to Detail Report');
 
   function __construct() {
+    $this->_kpiSpecs = array(
+      'donor_number' => array(
+        'type' => CRM_Utils_Type::T_INT,
+        'title' => ts('Total Number of Donors'),
+        'contact_type_title' => ts('Total Number of %1 Donors'),
+        'link_status' => 'every',
+      ),
+      'total_amount' => array(
+        'type' => CRM_Utils_Type::T_MONEY,
+        'title' => ts('Amount Raised'),
+        'contact_type_title' => ts('Amount Raised From %1s'),
+        'link_status' => 'every',
+      ),
+      'average_donation' => array(
+        'type' => CRM_Utils_Type::T_MONEY,
+        'title' => ts('Average Donation'),
+        'contact_type_title' => ts('Average Donation From %1s'),
+        'link_status' => 'every',
+      ),
+      'no_increased_donations' => array(
+        'type' => CRM_Utils_Type::T_INT,
+        'title' => ts('Donors who Increased their donation'),
+        'contact_type_title' => ts('%1 Donors who Increased their donation'),
+        'link_status' => 'increased',
+      ),
+      'current_pledge_count' => array(
+         'type' => CRM_Utils_Type::T_INT,
+         'title' => ts('Active Pledges'),
+         'contact_type_title' => ts('%1 Donors with active pledges'),
+         'link_status' => NULL,
+       ),
+      'current_recur_count' => array(
+          'type' => CRM_Utils_Type::T_INT,
+          'title' => ts('Active Recurring Contributions'),
+          'contact_type_title' => ts('%1 Donors with active recurring contributions'),
+          'link_status' => NULL,
+        ),
+      'current_sustainer_count' => array(
+        'type' => CRM_Utils_Type::T_INT,
+        'title' => ts('Sustaining Members'),
+        'contact_type_title' => ts('%1 Sustaining  Members'),
+        'link_status' => NULL,
+      ),
+    );
+    $this->setFinancialType();
+    if($this->financialTypeField == 'financial_type_id'){
+      // we are dealing with a 4.3 + install so we will also get contact created data
+      $this->_kpiSpecs['contact_count'] = array(
+        'type' => CRM_Utils_Type::T_INT,
+        'title' => ts('New Contacts in Database'),
+        'contact_type_title' => ts('New %1s in Database'),
+        'link_status' => NULL,
+        );
+      $extraDefault = 'contact_count';
+    }
     foreach ($this->_kpiSpecs as $specKey => $specs){
       $contactTypes =  CRM_Contribute_PseudoConstant::contactType();
       $this->_kpiDescriptors[$specKey] = ts($specs['title']);
@@ -107,6 +148,10 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
      $this->_currentYear = date('Y');
      $this->_lastYear = $this->_currentYear - 1;
      $this->_yearBeforeLast = $this->_currentYear - 2;
+     $this->_years = array(
+       0 => $this->_currentYear,
+       1 => $this->_lastYear,
+     );
      $this->_columns =  array('pseudotable' => array(
         'name' => 'civicrm_report_instance',
          'filters' => array(
@@ -120,7 +165,9 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
                'total_amount',
                'total_amount__individual',
                'average_donation__individual',
-               'no_increased_donations__individual'
+               'no_increased_donations__individual',
+               'current_sustainer_count',
+               $extraDefault
                )
              ),
            )
@@ -216,6 +263,10 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     $this->calcContactTypeDonationNumber();
     $this->calcIncreasedGivers();
     $this->calcContactTypeIncreasedGivers();
+    $this->calcContactTypeCurrentPledges();
+    $this->calcContactTypeCurrentRecurs();
+    $this->calcSustainerCount();
+    $this->calcNewContactCount();
     $this->_from = " FROM $tempTable";
     $this->stashValuesInTable($tempTable);
   }
@@ -281,7 +332,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
   function generateSummaryTable(){
     $tempTable = 'civicrm_report_temp_kpi' . date('d_H_I') . rand(1, 10000);
     $sql = " CREATE {$this->_temporary} TABLE $tempTable (
-      description  VARCHAR(50) NULL,
+      description  VARCHAR(100) NULL,
       this_year INT(10) NULL,
       last_year INT(10) NULL,
       percent_change INT(10) NULL
@@ -421,6 +472,140 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
       }
     }
 
+    /**
+     * Add data about number of pledges
+     */
+    function calcContactTypeCurrentPledges(){
+      foreach($this->_years as $interval => $year){
+        $sql = "
+        SELECT
+          'interval_{$interval}' as range_name
+          , contact_type
+          , '" . $this->_ranges['interval_' . $interval]['from_date'] . "' as from_date
+          , '" . $this->_ranges['interval_' . $interval]['to_date'] . "' as to_date
+          , COALESCE(count(c.id),0) as current_pledges
+        FROM {$this->_baseTable} {$this->_aliases[$this->_baseTable]}
+        INNER JOIN civicrm_contact c ON c.id = {$this->_aliases[$this->_baseTable]}.id
+        INNER JOIN
+          ( SELECT DISTINCT pledge.contact_id
+            FROM civicrm_pledge pledge
+            WHERE
+              pledge.start_date < '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59'
+            AND (pledge.end_date >= '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59')
+            AND (pledge.cancel_date > '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59'
+              OR pledge.cancel_date IS NULL)
+           ) as p ON p.contact_id = c.id
+        GROUP BY contact_type
+        WITH ROLLUP
+        ";
+        $result = CRM_Core_DAO::executeQuery($sql);
+        while($result->fetch()){
+          $field = 'current_pledge_count';
+          if(!empty($result->contact_type)){
+            $field = 'current_pledge_count__' . strtolower($result->contact_type);
+          }
+          $this->_kpis[$year][$field] = $result->current_pledges;
+      }
+    }
+  }
+
+  /**
+   * Add data about number of recurring Contributions
+   *
+   * Recurring contributions are counted if they
+   *  1) started before the end date of the range
+   *  2) didn't end or get cancelled before the end date of the range
+   */
+  function calcContactTypeCurrentRecurs(){
+    foreach($this->_years as $interval => $year){
+      $sql = "
+      SELECT
+      'interval_{$interval}' as range_name
+      , contact_type
+      , '" . $this->_ranges['interval_' . $interval]['from_date'] . "' as from_date
+        , '" . $this->_ranges['interval_' . $interval]['to_date'] . "' as to_date
+          , COALESCE(count(c.id),0) as current_recurs
+          FROM {$this->_baseTable} {$this->_aliases[$this->_baseTable]}
+          INNER JOIN civicrm_contact c ON c.id = {$this->_aliases[$this->_baseTable]}.id
+          INNER JOIN (
+            SELECT DISTINCT contact_id FROM civicrm_contribution_recur recur
+            WHERE recur.start_date <= '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59'
+            AND (recur.end_date >= '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59'
+              OR recur.end_date IS NULL)
+            AND (recur.cancel_date < '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59' OR
+              recur.cancel_date IS NULL)
+            ) as r ON r.contact_id = c.id
+        GROUP BY contact_type
+        WITH ROLLUP
+        ";
+
+        $result = CRM_Core_DAO::executeQuery($sql);
+        while($result->fetch()){
+          $field = 'current_recur_count';
+          if(!empty($result->contact_type)){
+            $field = 'current_recur_count__' . strtolower($result->contact_type);
+          }
+          $this->_kpis[$year][$field] = $result->current_recurs;
+        }
+      }
+  }
+
+/**
+ * Calculate number of sustaining members
+ * Set $this->_kpis[year]['current_sustainer_count'] type vars
+ */
+  function calcSustainerCount(){
+    foreach ($this->_years as $interval => $year){
+      $this->_kpis[$year]['current_sustainer_count'] =
+        (CRM_Utils_Array::value('current_recur_count', $this->_kpis[$year], 0)
+        + CRM_Utils_Array::value('current_pledge_count',  $this->_kpis[$year],0));
+
+      // and for individual types
+      $contactTypes = CRM_Contribute_PseudoConstant::contactType();
+      foreach ($contactTypes as $contactType){
+        $contactType = '__' . strtolower($contactType);
+        $this->_kpis[$year]['current_sustainer_count' . $contactType] =
+        (CRM_Utils_Array::value('current_recur_count' . $contactType, $this->_kpis[$year], 0)
+        + CRM_Utils_Array::value('current_pledge_count' . $contactType,  $this->_kpis[$year],0));
+      }
+    }
+  }
+
+  /**
+   * Add data about number of new contacts
+   *
+   * Contacts are counted if they
+   *  1) were created since the start date of the range
+   *  2) before the end date of the range
+   */
+  function calcNewContactCount(){
+    foreach($this->_years as $interval => $year){
+      $sql = "
+      SELECT
+      'interval_{$interval}' as range_name
+      , contact_type
+      , '" . $this->_ranges['interval_' . $interval]['from_date'] . "' as from_date
+        , '" . $this->_ranges['interval_' . $interval]['to_date'] . "' as to_date
+          , COALESCE(count(c.id),0) as contact_count
+          FROM {$this->_baseTable} {$this->_aliases[$this->_baseTable]}
+          INNER JOIN civicrm_contact c ON c.id = {$this->_aliases[$this->_baseTable]}.id
+          WHERE
+            c.created_date <= '" . $this->_ranges['interval_' . $interval]['to_date'] . "23-59-59'
+            AND c.created_date >= '" . $this->_ranges['interval_' . $interval]['from_date'] . "'
+        GROUP BY contact_type
+        WITH ROLLUP
+        ";
+        $result = CRM_Core_DAO::executeQuery($sql);
+          while($result->fetch()){
+          $field = 'contact_count';
+          if(!empty($result->contact_type)){
+            $field = 'contact_count__' . strtolower($result->contact_type);
+          }
+          $this->_kpis[$year][$field] = $result->contact_count;
+        }
+    }
+  }
+
 /**
  * We are just stashing our array of values into a table here - we could potentially render without a table
  * but this seems simple.
@@ -449,23 +634,30 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     CRM_Core_DAO::executeQuery($sql);
   }
   /**
+   * Create links to detailed report for various numbers
    * (non-PHPdoc)
    * @see CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates::alterDisplay()
    */
   function alterDisplay(&$rows){
     foreach ($rows as &$row){
       $availableKpi = array_flip($this->_kpiDescriptors);
+      //kpiName looks like 'total_amount__individual'
       $kpiName = $availableKpi[$row['description']];
       $kpiDetails = explode('__', $kpiName);
       if($this->_kpiSpecs[$kpiDetails[0]]['type'] == CRM_Utils_Type::T_MONEY){
         $row['this_year'] = CRM_Utils_Money::format($row['this_year']);
         $row['last_year'] = CRM_Utils_Money::format($row['last_year']);
       }
-      if($row['percent_change'] == 0){
+
+      if($row['percent_change'] == 0 && ($row['this_year'] != $row['last_year'])){
         $row['percent_change'] = 'n/a';
       }
       else{
         $row['percent_change'] = $row['percent_change'] . '%';
+      }
+      if(!$this->_kpiSpecs[$kpiDetails[0]]['link_status']){
+        // spec specifies no link
+        continue;
       }
       // we are dealing with rows not columns so this differs from parent approach
       $queryURL = "reset=1&force=1";

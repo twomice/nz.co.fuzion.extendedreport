@@ -953,7 +953,7 @@ class CRM_Extendedreport_Form_Report_ExtendedReport extends CRM_Report_Form {
  * and use this as the base
  */
   function generateTempTable(){
-    $tempTable = 'civicrm_report_temp_' . $this->_baseTable . rand(1, 10000);
+    $tempTable = 'civicrm_report_temp_' . $this->_baseTable . date('d_H_I') . rand(1, 10000);
     $sql = "CREATE {$this->_temporary} TABLE $tempTable
       (`id` INT(10) UNSIGNED NULL DEFAULT '0',
         INDEX `id` (`id`)
