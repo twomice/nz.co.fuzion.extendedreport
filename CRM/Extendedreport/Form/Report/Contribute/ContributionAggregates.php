@@ -775,6 +775,21 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   }
 
   /**
+   * Get number of donors who gave for the first time
+   *
+   * @param string $rangeName
+   * @param array $rangeFromDate
+   * @return string  Clause
+   */
+  function getFirstClause($rangeName, $rangeSpecs){
+    return "
+    IF (
+    first_receive_date {$rangeSpecs['between']}, 1,  0
+    )
+    ";
+  }
+
+  /**
    * Get number of donors who gave in the main period
    *
    * @param string $rangeName
