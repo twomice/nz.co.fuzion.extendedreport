@@ -93,6 +93,34 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_statuses = array();
 
   /**
+   * This is here as a way to determine what to potentially put in the url links as filters
+   * There is probably a better way...
+   * @var unknown_type
+   */
+  protected $_potentialCriteria = array(
+    'financial_type_id_value',
+    'financial_type_id_op',
+    'contribution_type_id_value',
+    'contribution_type_id_op',
+    'payment_instrument_id_op',
+    'payment_instrument_id_value',
+    'contribution_status_id_value',
+    'contribution_status_id_op',
+    'contribution_is_test_op',
+    'contribution_is_test_value',
+    'total_amount_min',
+    'total_amount_max',
+    'total_amount_op',
+    'total_amount_value',
+    'tagid_op',
+    'tagid_value',
+    'gid_op',
+    'gid_value',
+    'contact_type_value',
+    'contact_type_op',
+  );
+
+  /**
    * Instruction to add a % on a stacked bar chart
    * @var boolean
    */
