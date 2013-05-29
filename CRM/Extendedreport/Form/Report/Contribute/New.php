@@ -50,7 +50,7 @@ class CRM_Extendedreport_Form_Report_Contribute_New extends CRM_Extendedreport_F
   function __construct() {
     $this->_statuses = array('first');
 
-    $this->_barChartLegend = ts('Contributors previous to the Period behaviour in period');
+    $this->_barChartLegend = ts('New Contributors');
     $this->reportFilters = array(
       'civicrm_contribution' => array(
         'filters' => array(
@@ -96,9 +96,18 @@ class CRM_Extendedreport_Form_Report_Contribute_New extends CRM_Extendedreport_F
     $this->_aliases['civicrm_contact']  = 'civicrm_report_contact';
     $this->_tagFilter = TRUE;
     $this->_groupFilter = TRUE;
+
     parent::__construct();
   }
 
+  function buildChart(&$rows) {
+    $this->_graphData['xname'] = ts('Period');
+    $this->_graphData['yname'] = ts("Number of Donors");
+    foreach ($rows as $index => $row) {
+      $this->_graphData['xlabels'][] = ts(" to ") . $row['to_date'];
+    }
+    parent::buildChart($rows);
+  }
   function preProcess() {
     parent::preProcess();
   }

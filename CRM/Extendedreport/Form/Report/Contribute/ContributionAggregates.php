@@ -71,9 +71,9 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
   protected $_reportingStartDate = NULL;
   protected $_comparisonType = 'future'; // is the comparison period future, a priorrange, or all prior (after the reporting range starts)
   protected $_barChartLegend = NULL;
-  protected $_chartXName = NULL;
   protected $_baseEntity = NULL;
   protected $_tempTables = array();
+  protected $_graphData = array();
   /**
    * These are the labels for the available statuses.
    * Reports can over-ride them
@@ -85,52 +85,25 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     'recovered' => 'Recovered',
     'new' => 'New',
     'first' => 'First',
-    'every' => 'All Donations in period' // I wanted to use 'all' but it's a mysql key word
-  );
+    );
   /**
    *
    * @var array statuses to include in report
    */
   protected $_statuses = array();
+
   /**
-   *
-   * @var array aggregates to calculate for the report
-   * So far only 'every' is supported
+   * Instruction to add a % on a stacked bar chart
+   * @var boolean
    */
-  protected $_aggregates = array();
-  /**
- * This is here as a way to determine what to potentially put in the url links as filters
- * There is probably a better way...
- * @var unknown_type
- */
-  protected $_potentialCriteria = array(
-    'financial_type_id_value',
-    'financial_type_id_op',
-    'contribution_type_id_value',
-    'contribution_type_id_op',
-    'payment_instrument_id_op',
-    'payment_instrument_id_value',
-    'contribution_status_id_value',
-    'contribution_status_id_op',
-    'contribution_is_test_op',
-    'contribution_is_test_value',
-    'total_amount_min',
-    'total_amount_max',
-    'total_amount_op',
-    'total_amount_value',
-    'tagid_op',
-    'tagid_value',
-    'gid_op',
-    'gid_value',
-    'contact_type_value',
-    'contact_type_op'
-  );
+  protected $tagPercent = NULL;
+
   function buildChart(&$rows) {
     $graphData = array();
-    foreach ($this->_statuses as $status) {
-      $graphData['labels'][] = $this->_statusLabels[$status];
+    foreach ($this->_statuses as $status){
+      $graphData['labels'][]  = $this->_statusLabels[$status];
     }
-    if ($this->_params['charts'] == 'multiplePieChart') {
+    if($this->_params['charts'] == 'multiplePieChart'){
       return $this->mulitplePieChart($rows, $graphData);
     }
 
@@ -138,50 +111,47 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
       $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
       $graphData['end_date'][] = $row['to_date'];
       $statusValues = array();
-      foreach ($this->_statuses as $status) {
+      foreach ($this->_statuses as $status){
         $statusValues[] = (integer) $row[$status];
       }
       $graphData['values'][] = $statusValues;
     }
-
     // build the chart.
     $config = CRM_Core_Config::Singleton();
-    $graphData['xname'] = ts($this->_chartXName);
+    $graphData['xname'] = ts('Base contribution period');
     $graphData['yname'] = ts("Number of Donors");
-
     $graphData['legend'] = ts($this->_barChartLegend);
-    CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, 'barChartStack');
+
+    $graphData = array_merge($graphData, $this->_graphData);
+    CRM_Extendedreport_Form_Report_OpenFlashChart::buildChart($graphData, $this->_params['charts']);
     $this->assign('chartType', $this->_params['charts']);
   }
-  function mulitplePieChart(&$rows, $graphData) {
+
+  function mulitplePieChart(&$rows, $graphData){
     foreach ($rows as $index => $row) {
       $graphData['xlabels'][] = $this->_params['contribution_baseline_interval_value'] . ts(" months to ") . $row['to_date'];
       $graphData['end_date'][] = $row['to_date'];
-      foreach ($this->_statuses as $status) {
-        $graphData['value'][] = (integer) $row[$status];
+      foreach ($this->_statuses as $status){
+        $graphData['value'][] =
+          (integer) $row[$status]
+        ;
         $graphData['values'][$index][$status] = (integer) $row[$status];
       }
     }
 
     // build the chart.
 
-
-    $graphData['xname'] = 'x';
-    $config = CRM_Core_Config::Singleton();
-    $graphData['yname'] = "Amount ({$config->defaultCurrency})";
-    $chartInfo = array(
-      'legend' => $this->_barChartLegend
-    );
-    $chartInfo['xname'] = ts('Base contribution period');
-    $chartInfo['yname'] = ts("Number of Donors");
-    $chartData = CRM_Utils_OpenFlashChart::reportChart($graphData, 'pieChart', $this->_statuses, $chartInfo);
-    $this->assign('chartType', 'pieChart');
-    $this->assign('chartsData', $graphData['values']);
-    $this->assign('chartsLabels', array(
-      'status',
-      'no. contacts'
-    ));
-    $this->assign('chartInfo', $chartInfo);
+     $graphData['xname'] = 'x';
+     $config = CRM_Core_Config::Singleton();
+     $graphData['yname'] = "Amount ({$config->defaultCurrency})";
+     $chartInfo = array('legend' => $this->_barChartLegend);
+     $chartInfo['xname'] = ts('Base contribution period');
+     $chartInfo['yname'] = ts("Number of Donors");
+     $chartData = CRM_Utils_OpenFlashChart::reportChart( $graphData, 'pieChart', $this->_statuses, $chartInfo);
+     $this->assign('chartType', 'pieChart');
+     $this->assign('chartsData', $graphData['values']);
+     $this->assign('chartsLabels', array('status', 'no. contacts'));
+     $this->assign('chartInfo', $chartInfo);
   }
   function alterDisplay(&$rows) {
     $queryURL = "reset=1&force=1";

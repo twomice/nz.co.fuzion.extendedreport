@@ -120,6 +120,7 @@ class chart {
   protected $chart = null;
   protected $chartElement = null;
   protected $onClickFunName = null;
+  protected $currencyValues = FALSE;
   /**
    * Instruction to add a % on a stacked bar chart
    * @var boolean
@@ -137,7 +138,7 @@ class chart {
     }
     $this->chartTitle = CRM_Utils_Array::value('title', $params);
     $this->createChartElement();
-    $this->chartElement->set_colours($this->_colours);
+    $this->setChartValues();
     $this->setToolTip(CRM_Utils_Array::value('tip', $params));
     $this->onClickFunName = CRM_Utils_Array::value('on_click_fun_name', $params);
   }
@@ -152,7 +153,7 @@ class chart {
       $this->chartElement->set_tooltip($tip);
       return;
     }
-    else{
+    elseif($this->currencyValues){
       $config = CRM_Core_Config::singleton();
       $symbol = $config->defaultCurrencySymbol;
       $this->chartElement->set_tooltip("$symbol #val#");
@@ -185,6 +186,13 @@ class chart {
 }
 
 /**
+ * Set x & y values appropriate to chart Type
+ */
+function setChartValues(){
+
+}
+
+/**
    * Base class for all bar chart actions
    *
    * @author eileen
@@ -208,13 +216,11 @@ class barchart extends chart {
  */
   function __construct($params) {
     parent::__construct($params);
-    foreach ($this->values as $xVal => $yVal) {
-      $this->yValues[] = (double) $yVal;
-      $this->xValues[] = (string) $xVal;
-    }
+    $this->setYMaxYSteps();
     $this->xAxisName = CRM_Utils_Array::value('xname', $params);
     $this->yAxisName = CRM_Utils_Array::value('yname', $params);
     $this->xlabelAngle = CRM_Utils_Array::value('xlabelAngle', $params, 30);
+    $this->xlabels = CRM_Utils_Array::value('xlabels', $params);
     $this->chartTitle = CRM_Utils_Array::value('legend', $params, ts('Bar Chart'));
     // call user define function to handle on click event.
     if ($this->onClickFunName) {
@@ -229,7 +235,13 @@ class barchart extends chart {
    * On bar this values array will be the YValues array. For stack it will be the sum of the
    * relevant values
    */
-  function setYMaxYSteps($values){
+  function setYMaxYSteps($values = NULL){
+    if(!$values){
+      $values = $this->yValues;
+    }
+    if(empty($values)){
+      return;
+    }
     // calculate max scale for graph.
     $this->yMax = ceil(max($values));
     if ($mod = $this->yMax % (str_pad(5, strlen($this->yMax) - 1, 0))) {
@@ -244,7 +256,6 @@ class barchart extends chart {
   function createChartElement() {
     $this->chartElement = new bar_glass();
     $this->chartElement->set_values($this->yValues);
-    $this->setYMaxYSteps($this->yValues);
   }
   /**
  * (non-PHPdoc)
@@ -259,7 +270,16 @@ class barchart extends chart {
       $this->chart->add_element( $this->tags );
     }
   }
-
+/**
+ * Set x & y values appropriate to chart Type
+ */
+  function setChartValues(){
+    foreach ($this->values as $xVal => $yVal) {
+      $this->yValues[] = (double) $yVal[0];
+      $this->xValues[] = (string) $xVal;
+    }
+    $this->chartElement->set_values($this->yValues);
+  }
   /**
  * build x & y axis
  */
@@ -301,7 +321,7 @@ class barchart extends chart {
    */
   function setXLabels(){
     $xLabels = new x_axis_labels();
-    $xLabels->set_labels($this->xValues);
+    $xLabels->set_labels($this->xlabels);
     return $xLabels;
   }
 }
@@ -321,8 +341,8 @@ class barChartStack extends barchart {
   protected $tags = array();
   function __construct($params) {
     $this->keyLabels =  $this->createKeyLabels($params['labels']);
-    $this->xlabels = CRM_Utils_Array::value('xlabels', $params);
     parent::__construct($params);
+    $this->chartElement->set_colours($this->_colours);
     $x = 0;
     $this->tags = new ofc_tags();
     foreach ($this->values as $valueArray) {
@@ -338,10 +358,7 @@ class barChartStack extends barchart {
       $this->tags->append_tag($tag);
       $x++;
     }
-
     $this->setYMaxYSteps($totals);
-
-
   }
   /**
    *
@@ -387,6 +404,13 @@ class barChartStack extends barchart {
   function createChartElement() {
     $this->chartElement = new bar_stack();
     $this->chartElement->set_keys($this->keyLabels);
+  }
+
+  /**
+   * Set x & y values appropriate to chart Type
+   */
+  function setChartValues(){
+
   }
 }
 

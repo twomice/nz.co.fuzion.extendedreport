@@ -42,7 +42,7 @@ class CRM_Extendedreport_Form_Report_Contribute_Recovery extends CRM_Extendedrep
 
   protected $_charts = array(
     '' => 'Tabular',
-    'barChart' => 'Bar Chart',
+    'barChartStack' => 'Bar Chart',
     'multiplePieChart' => 'Pie Chart',
   );
 
