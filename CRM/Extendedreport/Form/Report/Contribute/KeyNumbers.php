@@ -266,7 +266,9 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
     $this->calcContactTypeCurrentPledges();
     $this->calcContactTypeCurrentRecurs();
     $this->calcSustainerCount();
-    $this->calcNewContactCount();
+    if($this->financialTypeField == 'financial_type_id'){
+      $this->calcNewContactCount();
+    }
     $this->_from = " FROM $tempTable";
     $this->stashValuesInTable($tempTable);
   }
