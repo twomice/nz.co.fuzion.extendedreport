@@ -124,6 +124,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
         'link_status' => NULL,
       ),
     );
+    $extraDefault = NULL;
     $this->setFinancialType();
     if($this->financialTypeField == 'financial_type_id'){
       // we are dealing with a 4.3 + install so we will also get contact created data
