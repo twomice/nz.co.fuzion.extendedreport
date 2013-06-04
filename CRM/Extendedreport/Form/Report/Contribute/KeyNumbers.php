@@ -146,13 +146,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
           );
       }
     }
-     $this->_currentYear = date('Y');
-     $this->_lastYear = $this->_currentYear - 1;
-     $this->_yearBeforeLast = $this->_currentYear - 2;
-     $this->_years = array(
-       0 => $this->_currentYear,
-       1 => $this->_lastYear,
-     );
+
      $this->_columns =  array('pseudotable' => array(
         'name' => 'civicrm_report_instance',
          'filters' => array(
@@ -225,6 +219,13 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
       $this->_params['receive_date_to'] =  $fromTo['to'];
      // unset($this->_params['receive_date_relative']);
     }
+    $this->_currentYear = date('Y', strtotime($this->_params['receive_date_from']));
+    $this->_lastYear = $this->_currentYear - 1;
+    $this->_yearBeforeLast = $this->_currentYear - 2;
+    $this->_years = array(
+      0 => $this->_currentYear,
+      1 => $this->_lastYear,
+    );
     // receive date from & to get unset in parent class. I'm a bit scared to change that right
     // now so will hack around it by stashing them for a bit
     $this->_params['receive_date_from_stash']  = $this->_params['receive_date_from'];
@@ -240,6 +241,7 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
       'statuses' => array('increased'),
     )
     );
+
   }
   /**
    * As per last function the ContributionAggregate class is unsetting 'receive_date_from, receive_date_to
