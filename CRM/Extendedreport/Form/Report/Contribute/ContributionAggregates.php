@@ -420,8 +420,13 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
     unset($this->_params['receive_date_to']);
     $this->_columns['civicrm_contribution']['filters']['receive_date']['pseudofield'] = TRUE;
     $columnStr = NULL;
-    $tempTable = $this->constructComparisonTable(CRM_Utils_Array::value('extra_fields', $extra));
-    $this->_tempTables['civicrm_contribution_multi'] = $tempTable;
+    if(isset($this->_tempTables['civicrm_contribution_multi'])){
+      $tempTable = $this->_tempTables['civicrm_contribution_multi'];
+    }
+    else{
+      $tempTable = $this->constructComparisonTable(CRM_Utils_Array::value('extra_fields', $extra));
+      $this->_tempTables['civicrm_contribution_multi'] = $tempTable;
+    }
     //@todo hack differentiating summary based on contact & contribution report
     // do something better -
     // Follow up note - I may no longer be doing any based on 'contribution'
@@ -438,8 +443,15 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
        ", $this->_from);
     }
     else {
-      $this->createSummaryTable($tempTable);
+      if(isset($this->_tempTables['civicrm_contribution_multi_summary'])){
+        $tempTableSummary = $this->_tempTables['civicrm_contribution_multi_summary'];
+      }
+      else{
+        $this->createSummaryTable($tempTable);
+        $tempTableSummary = $this->_tempTables['civicrm_contribution_multi_summary'] = $tempTable . '_summary';
+      }
       $this->_from = " FROM {$tempTable}_summary";
+
     }
     $this->whereClauses = array();
   }
