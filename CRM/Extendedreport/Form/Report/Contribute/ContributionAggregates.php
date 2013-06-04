@@ -91,7 +91,13 @@ class CRM_Extendedreport_Form_Report_Contribute_ContributionAggregates extends C
    * @var array statuses to include in report
    */
   protected $_statuses = array();
-
+  /**
+   *
+   * @var array aggregates to calculate for the report
+   * aggregates are for calculating $ amount rather than number of
+   * people that fit the criteria
+   */
+  protected $_aggregates = array();
   /**
    * This is here as a way to determine what to potentially put in the url links as filters
    * There is probably a better way...

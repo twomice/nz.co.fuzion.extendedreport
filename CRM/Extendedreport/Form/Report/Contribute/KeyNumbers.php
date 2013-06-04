@@ -74,6 +74,8 @@ class CRM_Extendedreport_Form_Report_Contribute_KeyNumbers extends CRM_Extendedr
   /**
    *
    * @var array aggregates to calculate for the report
+   * aggregates are for calculating $ amount rather than number of
+   * people that fit the criteria
    */
   protected $_aggregates = array('every');
 
