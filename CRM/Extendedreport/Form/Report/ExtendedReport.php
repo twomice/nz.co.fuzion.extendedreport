@@ -5844,14 +5844,9 @@ ON {$this->_aliases['civicrm_membership']}.membership_type_id = {$this->_aliases
       INSERT INTO $tempTable
       SELECT line_item_civireport.id as lid,contribution_civireport.id
       FROM civicrm_line_item line_item_civireport
-      LEFT JOIN civicrm_membership membership_civireport
-      ON (line_item_civireport.entity_id =membership_civireport.id AND line_item_civireport.entity_table = 'civicrm_membership')
-      LEFT JOIN civicrm_membership_payment pp
-      ON membership_civireport.id = pp.membership_id
-      LEFT JOIN civicrm_contribution contribution_civireport
-        ON pp.contribution_id = contribution_civireport.id
-      AND contribution_civireport.is_test = 0
-      WHERE contribution_civireport.id IS NOT NULL
+      INNER JOIN civicrm_contribution contribution_civireport
+        ON line_item_civireport.contribution_id = contribution_civireport.id
+        AND contribution_civireport.is_test = 0
     ";
     CRM_Core_DAO::executeQuery($createTablesql);
     CRM_Core_DAO::executeQuery($insertContributionRecordsSql);
